@@ -114,6 +114,7 @@ in `test/kvm/README.md`. Full reproduction runbook is `docs/RUNBOOK.md`.
 | 2026-04-11 | `2f8c8b6` | 4.21.9 | 3.5.2    | libvirt (mixed bus)        | 518 GiB (2×259)         | Initial PX-StoreV2 pass, smoke test OK |
 | 2026-04-12 | `434eae3` | 4.21.9 | 3.6.0    | libvirt                    | 986 GiB (2×493) + drive-add to 1.5 TiB | px-central-aligned spec; live `pxctl service drive add` |
 | 2026-04-12 | `c580828` | 4.21.9 | 3.6.0    | libvirt                    | **1.5 TiB at install**  | Retest #9: `useAllWithPartitions` + raw-path systemMetadataDevice. Workaround proven; not shipped (hardware-specific) |
+| 2026-04-12 | `bd0d360` | 4.21.9 | 3.6.0    | libvirt                    | 986 GiB (2×493)         | Two consecutive end-to-end passes exercising `install-portworx.sh` script hardening — OLM deployment-exists poll, placeholder regex scoped to `nodeName:`, `phase=Running` wait. Smoke test PASSED both runs. |
 
 ## Known-broken configs
 
