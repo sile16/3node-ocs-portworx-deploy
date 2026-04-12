@@ -1,0 +1,54 @@
+# KVM-SPECIFIC WORKAROUND — NOT part of deploy/
+#
+# Mark every libvirt virtio-blk (/dev/vd*) and virtio-scsi (/dev/sd*)
+# disk as non-rotational in the guest kernel. Without this, Portworx
+# refuses to place its metadata pool on the px-storage partition and
+# its px-cluster pods crash-loop at 0/1 Ready with:
+#
+#   Device /dev/disk/by-partlabel/px-storage (STORAGE_MEDIUM_MAGNETIC)
+#   is not supported for metadata pool in the configuration, please
+#   use SSD or NVMe device
+#
+# Root cause: libvirt/qemu virtio disks advertise rotational=1 (HDD)
+# by default in the guest. libvirt DOES have a `<target rotation_rate>`
+# attribute that would fix this at the hypervisor layer, but it's only
+# accepted for SCSI/IDE/SATA — NOT for virtio-blk:
+#
+#   error: internal error: rotation rate is only valid for SCSI/IDE/SATA bus
+#
+# So we can't fix it uniformly at the libvirt XML layer. Instead we
+# ship a single udev rule, applied by the MCO, that flips
+# /sys/block/[vs]d*/queue/rotational from 1 → 0 at boot. This runs
+# before kubelet / crio / portworx, so Portworx sees the correct
+# medium on its first read. The same rule covers BOTH the masters
+# (virtio-blk /dev/vda+vdb) and the arbiter (virtio-scsi /dev/sda),
+# so one method fits all three node roles.
+#
+# Two files — this one (master role) plus 99-libvirt-rotational-
+# arbiter.yaml — because MachineConfig has exactly one role selector
+# and OpenShift puts master and arbiter in separate MachineConfigPools.
+# The file contents (the udev rule) are identical.
+#
+# This file intentionally lives under test/kvm/machineconfigs/ and NOT
+# under deploy/. Bare-metal SATA / NVMe hardware reports its rotational
+# flag correctly from firmware and does NOT need this rule. build-iso.sh
+# copies it alongside deploy/01-* and deploy/02-* into the agent
+# installer's openshift/ manifest dir.
+
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  labels:
+    machineconfiguration.openshift.io/role: master
+  name: 99-libvirt-rotational-master
+spec:
+  config:
+    ignition:
+      version: 3.5.0
+    storage:
+      files:
+        - path: /etc/udev/rules.d/99-libvirt-rotational.rules
+          mode: 0644
+          overwrite: true
+          contents:
+            source: "data:text/plain;charset=utf-8;base64,IyBLVk0gdGVzdC1lbnYtb25seTogbGlidmlydCB2aXJ0aW8tYmxrIGFuZCB2aXJ0aW8tc2NzaSBkaXNrcyBkZWZhdWx0CiMgdG8gcm90YXRpb25hbD0xLCB3aGljaCBtYWtlcyBQb3J0d29yeCByZWplY3QgdGhlbSBmb3IgaXRzIG1ldGFkYXRhCiMgcG9vbC4gRm9yY2UgdGhlbSB0byBub24tcm90YXRpb25hbCBoZXJlLgpBQ1RJT049PSJhZGR8Y2hhbmdlIiwgU1VCU1lTVEVNPT0iYmxvY2siLCBLRVJORUw9PSJbdnNdZFthLXpdIiwgQVRUUntxdWV1ZS9yb3RhdGlvbmFsfT0iMCIK"

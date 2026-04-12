@@ -1,0 +1,71 @@
+# install-config.yaml.template — libvirt agent-based install
+#
+# This is a TEMPLATE. generate-iso.sh reads it, substitutes:
+#   __PULL_SECRET__  ← contents of ~/.local/pullsecret (single-line JSON)
+#   __SSH_PUBKEY__   ← contents of ~/.ssh/id_rsa.pub   (single-line)
+# into a temporary install-config.yaml, then hands that to
+# `openshift-install agent create image`.
+#
+# DO NOT inline the real pull secret or ssh key here — this file is committed;
+# the rendered install-config.yaml is not.
+#
+# Topology: 2 masters + 1 arbiter (compact arbiter cluster, OCP 4.21 GA).
+# Platform: baremetal (required for arbiter — NOT supported on platform: gcp/aws/azure).
+# Network:  dedicated libvirt network `tna-net` (192.168.125.0/24), created by
+#           create-vms.sh. Nodes get deterministic IPs via DHCP host reservations
+#           keyed on static MAC:  .20 node-a, .21 node-b, .22 arbiter.
+#           VIPs sit at .10 (api) and .11 (ingress), below the DHCP range (.100+).
+
+apiVersion: v1
+baseDomain: example.local                     # private only; doesn't need public DNS
+metadata:
+  name: tna
+
+controlPlane:
+  name: master
+  replicas: 2                             # NOTE: 2, not 3 — arbiter topology
+  architecture: amd64
+  hyperthreading: Enabled
+
+arbiter:
+  name: arbiter
+  replicas: 1                             # the one tie-breaker node
+  architecture: amd64
+  hyperthreading: Enabled
+
+compute:
+  - name: worker
+    replicas: 0                           # compact cluster — masters run workloads
+
+networking:
+  clusterNetwork:
+    - cidr: 10.128.0.0/14
+      hostPrefix: 23
+  serviceNetwork:
+    - 172.30.0.0/16
+  machineNetwork:
+    - cidr: 192.168.125.0/24              # MUST match the tna-net libvirt network
+  networkType: OVNKubernetes
+
+platform:
+  baremetal:
+    apiVIPs:
+      - 192.168.125.10                    # below tna-net DHCP range, not assigned to any node
+    ingressVIPs:
+      - 192.168.125.11
+
+fips: false
+publish: External
+
+# When host-setup/registry-cache.sh is running on the libvirt host, build-iso.sh
+# will substitute __MIRROR_SOURCES__ with the quay.io → 192.168.125.1:5000
+# mapping below, and __TRUST_BUNDLE__ with the registry's self-signed cert.
+# When it's NOT running (or when building for a different target), build-iso.sh
+# strips both blocks out so the placeholders never leak into the final config.
+#
+# Do NOT hand-edit the placeholders — treat them as hooks for build-iso.sh.
+__MIRROR_SOURCES__
+__TRUST_BUNDLE__
+
+pullSecret: '__PULL_SECRET__'
+sshKey: '__SSH_PUBKEY__'

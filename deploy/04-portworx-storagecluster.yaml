@@ -1,0 +1,70 @@
+# Portworx StorageCluster — 2+1 arbiter (TNA), PX-StoreV2, RF=2.
+# install-portworx.sh replaces __*_NODE_NAME__ placeholders from live `oc get nodes`.
+apiVersion: core.libopenstorage.org/v1
+kind: StorageCluster
+metadata:
+  name: px-cluster
+  namespace: portworx
+  annotations:
+    portworx.io/is-openshift: "true"
+    portworx.io/run-on-master: "true"
+    portworx.io/misc-args: "-rt_opts small_conf=1 -T px-storev2"
+spec:
+  image: portworx/oci-monitor:3.6.0
+  imagePullPolicy: Always
+  startPort: 17001
+
+  kvdb:
+    internal: true
+
+  secretsProvider: k8s
+
+  placement:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: portworx.io/node-type
+                operator: In
+                values: [storage, storageless]
+
+  stork:
+    enabled: true
+    args:
+      webhook-controller: "true"
+
+  csi:
+    enabled: true
+
+  monitoring:
+    telemetry:
+      enabled: true
+    prometheus:
+      exportMetrics: true
+
+  runtimeOptions:
+    default-io-profile: "6"
+
+  # `useAll` (raw whole disks only). To also auto-consume the px-data
+  # partition at install time, switch to `useAllWithPartitions` + a raw-path
+  # systemMetadataDevice (e.g. /dev/vda5) — see docs/portworx-design.md.
+  # Otherwise add px-data post-install: pxctl service drive add -d /dev/disk/by-partlabel/px-data --newpool
+  nodes:
+    - selector:
+        nodeName: __MASTER_0_NODE_NAME__  #Replaced by install-portworx.sh DO NOT MODIFY
+      storage:
+        useAll: true
+        systemMetadataDevice: /dev/disk/by-partlabel/px-metadata
+
+    - selector:
+        nodeName: __MASTER_1_NODE_NAME__  #Replaced by install-portworx.sh DO NOT MODIFY
+      storage:
+        useAll: true
+        systemMetadataDevice: /dev/disk/by-partlabel/px-metadata
+
+    - selector:
+        nodeName: __ARBITER_NODE_NAME__  #Replaced by install-portworx.sh DO NOT MODIFY
+      storage:
+        devices: []
+        useAll: false
+        kvdbDevice: /dev/disk/by-partlabel/px-metadata

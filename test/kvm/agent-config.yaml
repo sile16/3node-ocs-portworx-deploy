@@ -1,0 +1,56 @@
+# agent-config.yaml — libvirt agent-based install
+#
+# Paired with install-config.yaml (rendered from install-config.yaml.template
+# by generate-iso.sh). Fed together to `openshift-install agent create image`.
+#
+# Why this file is so short:
+#   We rely on libvirt DHCP host reservations (see create-vms.sh) to give
+#   each VM a deterministic IP keyed on its static MAC. That means we do NOT
+#   need per-host NMState networkConfig here — omitting networkConfig tells
+#   the agent installer "configure this host via DHCP", and the reservation
+#   guarantees the IP it gets is the one we expect.
+#
+#   This sidesteps the NMState interface-name pitfall (guest might call the
+#   virtio NIC enp1s0 or ens2 depending on PCI topology) and keeps the file
+#   self-contained — no per-host network blocks to drift out of sync.
+#
+# MACs here MUST match create-vms.sh exactly. If you change one, change both.
+
+apiVersion: v1beta1
+kind: AgentConfig
+metadata:
+  name: tna
+
+# rendezvousIP is where the first agent to boot tells the others to meet.
+# It must be one node's IP (conventionally node 0). With DHCP reservations,
+# master-1.example.local will always land on .20, so this is stable.
+rendezvousIP: 192.168.125.20
+
+hosts:
+  # Masters use virtio-blk for both disks (/dev/vda boot + /dev/vdb data)
+  # to exercise the coreos-boot-disk symlink on virtio-blk hardware.
+  - hostname: master-1.example.local
+    role: master
+    interfaces:
+      - name: enp1s0
+        macAddress: 52:54:00:12:34:01
+    rootDeviceHints:
+      deviceName: /dev/vda
+
+  - hostname: master-2.example.local
+    role: master
+    interfaces:
+      - name: enp1s0
+        macAddress: 52:54:00:12:34:02
+    rootDeviceHints:
+      deviceName: /dev/vda
+
+  # Arbiter uses virtio-scsi (/dev/sda) — same symlink should still
+  # resolve correctly. Exercises the other bus type in the same cluster.
+  - hostname: arbiter-1.example.local
+    role: arbiter
+    interfaces:
+      - name: enp1s0
+        macAddress: 52:54:00:12:34:03
+    rootDeviceHints:
+      deviceName: /dev/sda

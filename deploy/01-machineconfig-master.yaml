@@ -1,0 +1,23 @@
+# Master px-metadata (p5, 64 GiB) + px-data (p6, rest of disk). Raw, no filesystem.
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  labels:
+    machineconfiguration.openshift.io/role: master
+  name: 98-px-storage-master
+spec:
+  config:
+    ignition:
+      version: 3.5.0
+    storage:
+      disks:
+        - device: /dev/disk/by-id/coreos-boot-disk   # stable, hardware-agnostic (RHCOS 4.11+)
+          partitions:
+            - label: px-metadata
+              number: 5
+              startMiB: 174080   # 170 GiB OS reservation
+              sizeMiB: 65536     # 64 GiB
+            - label: px-data
+              number: 6
+              startMiB: 239616   # 170 + 64 GiB
+              sizeMiB: 0         # rest of disk

@@ -1,0 +1,39 @@
+# Claude Code local state — per-machine, never commit
+.claude/
+
+# test/kvm ephemeral artifacts — regenerated every run
+test/kvm/generated/
+test/kvm/logs/
+
+# host-setup secrets + regenerable artifacts
+# (registry-cert.pem CAN be committed — it's a self-signed public cert —
+#  but we skip it along with the private key so the whole host-setup/
+#  stays reproducible from envsetup + registry-cache.sh up)
+test/kvm/host-setup/registry-cert.pem
+test/kvm/host-setup/registry-cert.pem.disabled-for-regression
+test/kvm/host-setup/registry-key.pem
+
+# Editor / OS junk
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Python bytecode (only if any helpers ever grow to import Python modules)
+__pycache__/
+*.pyc
+
+# NEVER commit real credentials — secrets/pull-secret.txt in this repo is
+# a DOCUMENTATION PLACEHOLDER, not a real token. If anyone ever drops a
+# real pull secret at that path, they should rename it to something
+# matching *.real.json and add it to this list:
+*.real.json
+*-credentials.json
+secrets/*
+original_aicli
+original_aicli/*
+
+# Site-specific Portworx license/registration script — contains activation
+# IDs or px-central credentials. install-portworx.sh runs it if present.
+deploy/99-portworx-register.sh

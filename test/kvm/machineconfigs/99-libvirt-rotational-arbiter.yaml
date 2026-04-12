@@ -1,0 +1,25 @@
+# KVM-SPECIFIC WORKAROUND — NOT part of deploy/
+#
+# Arbiter-role companion to 99-libvirt-rotational-master.yaml. Same
+# udev rule, different MachineConfig role selector, because OCP puts
+# master and arbiter in separate MachineConfigPools.
+#
+# See 99-libvirt-rotational-master.yaml for the full rationale.
+
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  labels:
+    machineconfiguration.openshift.io/role: arbiter
+  name: 99-libvirt-rotational-arbiter
+spec:
+  config:
+    ignition:
+      version: 3.5.0
+    storage:
+      files:
+        - path: /etc/udev/rules.d/99-libvirt-rotational.rules
+          mode: 0644
+          overwrite: true
+          contents:
+            source: "data:text/plain;charset=utf-8;base64,IyBLVk0gdGVzdC1lbnYtb25seTogbGlidmlydCB2aXJ0aW8tYmxrIGFuZCB2aXJ0aW8tc2NzaSBkaXNrcyBkZWZhdWx0CiMgdG8gcm90YXRpb25hbD0xLCB3aGljaCBtYWtlcyBQb3J0d29yeCByZWplY3QgdGhlbSBmb3IgaXRzIG1ldGFkYXRhCiMgcG9vbC4gRm9yY2UgdGhlbSB0byBub24tcm90YXRpb25hbCBoZXJlLgpBQ1RJT049PSJhZGR8Y2hhbmdlIiwgU1VCU1lTVEVNPT0iYmxvY2siLCBLRVJORUw9PSJbdnNdZFthLXpdIiwgQVRUUntxdWV1ZS9yb3RhdGlvbmFsfT0iMCIK"

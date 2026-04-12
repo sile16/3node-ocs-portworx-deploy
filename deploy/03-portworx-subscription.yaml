@@ -1,0 +1,29 @@
+# Portworx Enterprise operator (OLM) — namespace + OperatorGroup + Subscription.
+# install-portworx.sh applies this then waits for the operator before applying 04-.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: portworx
+  labels:
+    openshift.io/cluster-monitoring: "true"
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: portworx
+  namespace: portworx
+spec:
+  targetNamespaces:
+    - portworx
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: portworx-certified
+  namespace: portworx
+spec:
+  channel: stable
+  name: portworx-certified
+  source: certified-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic
