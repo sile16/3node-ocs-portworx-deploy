@@ -121,6 +121,7 @@ in `test/kvm/README.md`. Full reproduction runbook is `docs/RUNBOOK.md`.
 | Config | Fails how | Workaround |
 |---|---|---|
 | `useAllWithPartitions: true` + `systemMetadataDevice: /dev/disk/by-partlabel/px-metadata` | PX doesn't resolve the partlabel symlink before cross-referencing against discovery → `/dev/vda5` lands in both metadata + storage lists → "device has filesystem on it" | Bug is path-resolution, not exclusion logic. Use raw path (`/dev/vda5`) for the metadata device — works (retest #9 PASS), but per-host hardware-specific. Default ship: `useAll: true` (skips px-data; add post-install via `pxctl service drive add`). |
+| `nodes[].selector.labelSelector` on TNA StorageCluster (instead of `nodeName`) | **Admission accepts it** (`oc apply --dry-run=server` passes, object stores fine), then the operator reconcile rejects at `storagecluster.go:3320`: `"Failed to create TNA NodeSpecs: NodeSpec for arbiter node <hostname> not found, please add it to the storage cluster spec"`. StorageCluster phase flips to `Degraded`. | TNA reconcile does an exact `nodeName` lookup per node — labelSelector matches aren't consulted. Ship exact `nodeName` on every entry; `install-portworx.sh` substitutes from live `oc get nodes`. Tested on PX 26.1.0 operator / 3.6.0 runtime, 2026-04-12. |
 
 ## License
 
