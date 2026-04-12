@@ -64,15 +64,12 @@ fi
 # apply the file
 oc apply -f "$rendered_storagecluster"
 
-# The Portworx operator emits condition types Install / RuntimeState (no "Ready").
-# Wait on the two that actually flip: Install=Completed and RuntimeState=Online.
+# The Portworx operator only transitions `.status.phase` to "Running" once
+# Install=Completed AND RuntimeState=Online, so this single wait covers both.
+# (There is no "Ready" condition on StorageCluster — don't be tempted to add one.)
 if ! oc -n portworx wait --for=jsonpath='{.status.phase}'=Running storagecluster/px-cluster --timeout=20m; then
   echo "FATAL: px-cluster did not reach phase=Running within 20 minutes" >&2
   echo "       Check: oc -n portworx get storagecluster,pods; oc -n portworx describe storagecluster px-cluster" >&2
-  exit 1
-fi
-if ! oc -n portworx wait --for=condition=Install=Completed storagecluster/px-cluster --timeout=10m; then
-  echo "FATAL: px-cluster Install condition did not reach Completed within 10 minutes" >&2
   exit 1
 fi
 
