@@ -32,8 +32,8 @@
 # This file intentionally lives under test/kvm/machineconfigs/ and NOT
 # under deploy/. Bare-metal SATA / NVMe hardware reports its rotational
 # flag correctly from firmware and does NOT need this rule. build-iso.sh
-# copies it alongside deploy/01-* and deploy/02-* into the agent
-# installer's openshift/ manifest dir.
+# copies it alongside deploy/templates/01-* and deploy/templates/02-*
+# into the agent installer's openshift/ manifest dir.
 
 apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfig

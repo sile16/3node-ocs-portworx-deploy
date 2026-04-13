@@ -4,19 +4,29 @@ How to reproduce the cluster end-to-end on a fresh Ubuntu 24.04 host using
 the libvirt test harness in `test/kvm/`.
 
 For bare-metal rollout, skip the libvirt setup and use `aicli` against the
-assisted-installer:
+assisted-installer, driven by the site's row in `deploy/sites.csv`:
 
 ```sh
 cd deploy
-aicli create cluster --paramfile aicli_parameters.yml tna   # register cluster + generate ISO
-aicli download iso tna                                      # pulls tna.iso into CWD
+./render.sh <site>                                           # produces deploy/sites/<site>/*
+cd sites/<site>
+aicli create cluster    --paramfile aicli_parameters.yml <cluster_name>
+aicli download iso      <cluster_name>                       # pulls <cluster_name>.iso
 # boot each node from the ISO — any of: USB stick, virtual media/CD (iDRAC,
 # iLO, IPMI), or PXE/HTTP-boot the extracted kernel+initrd+rootfs.
-# USB: sudo dd if=tna.iso of=/dev/sdX bs=4M status=progress conv=fsync
+# USB: sudo dd if=<cluster_name>.iso of=/dev/sdX bs=4M status=progress conv=fsync
 # Hosts register with assisted-service by MAC (see `hosts:` in paramfile).
-aicli wait cluster tna                                      # blocks until install-complete
-export KUBECONFIG=$(aicli info cluster tna -f kubeconfig)
-./install-portworx.sh
+aicli wait cluster <cluster_name>                            # blocks until install-complete
+export KUBECONFIG=$(aicli info cluster <cluster_name> -f kubeconfig)
+
+# Portworx bring-up, in numeric order:
+oc apply -f 03-configmap-clulster-monitoring.yaml
+./04-prepare-for-portworx.sh       # labels + resolves per-node raw metadata device
+oc apply -f 05-portworx-subscription.yaml
+oc -n portworx wait --for=condition=Available deployment/portworx-operator --timeout=10m
+oc apply -f 06-portworx-storagecluster.yaml
+./07-portworx-register.sh          # optional license activation
+./check_px_status.sh               # health snapshot
 ```
 
 `full_iso: true` in the paramfile embeds the rootfs in the ISO so nodes don't
@@ -55,8 +65,17 @@ oc get nodes                              # expect 3 Ready
 
 ./collect-cluster-state.sh                # per-node partition validation
 
-# Portworx — single script in deploy/
-(cd ../../deploy && ./install-portworx.sh)
+# Portworx — render the site dir, then run the numbered steps in order.
+(cd ../../deploy && ./render.sh test-kvm)
+cd ../../deploy/sites/test-kvm
+oc apply -f 03-configmap-clulster-monitoring.yaml
+./04-prepare-for-portworx.sh
+oc apply -f 05-portworx-subscription.yaml
+oc -n portworx wait --for=condition=Available deployment/portworx-operator --timeout=10m
+oc apply -f 06-portworx-storagecluster.yaml
+./check_px_status.sh
+cd -
+
 ./portworx/05-smoke-test.sh               # PVC bind + write/read
 
 ./teardown.sh                             # destroy VMs + clean pool volumes
@@ -75,11 +94,11 @@ oc get nodes                              # expect 3 Ready
 After `collect-cluster-state.sh`:
 - Every node: `/dev/disk/by-partlabel/px-metadata` present, ~64 GiB
 - Masters also: `/dev/disk/by-partlabel/px-data` present (rest of disk)
-- Rootfs grew to ~170 GiB (= `startMiB` in `deploy/01-/02-machineconfig-*.yaml`)
+- Rootfs grew to ~170 GiB (= `startMiB` in `deploy/templates/01-/02-machineconfig-*.yaml`)
 - `findmnt /var/lib/portworx` returns non-zero (NOT a separate mount)
 - `oc get mcp` shows master + arbiter pools both `UPDATED=True`
 
-After `install-portworx.sh` + smoke test:
+After the Portworx bring-up (03 → 04 → 05 → 06) + smoke test:
 - `pxctl status` reports `PX is operational`, all 3 nodes Online
 - `pxctl cluster list` shows storage on masters, "No Storage" on arbiter
 - Smoke test PVC binds + writes + reads against `px-csi-replicated`

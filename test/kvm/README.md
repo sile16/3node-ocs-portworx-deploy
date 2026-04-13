@@ -39,11 +39,11 @@ exercises `deploy/`'s `coreos-boot-disk` symlink on both. VIPs are `.10`
 | Validation         | `collect-cluster-state.sh`, `host-setup/update-etc-hosts.sh`       |
 | Portworx           | `portworx/05-smoke-test.sh`, `portworx/99-teardown.sh`             |
 
-`build-iso.sh` copies MachineConfigs from `../../deploy/01-` and `../../deploy/02-`
-into the agent installer's manifest dir, then layers every `*.yaml` in
-`./machineconfigs/` on top. Edit a `deploy/*.yaml` (bare-metal canonical) or
-a `./machineconfigs/*.yaml` (KVM-only) and the next `generate-iso.sh` picks
-it up — no forks.
+`build-iso.sh` copies MachineConfigs from `../../deploy/templates/01-` and
+`../../deploy/templates/02-` into the agent installer's manifest dir, then
+layers every `*.yaml` in `./machineconfigs/` on top. Edit a
+`deploy/templates/*.yaml` (bare-metal canonical) or a `./machineconfigs/*.yaml`
+(KVM-only) and the next `generate-iso.sh` picks it up — no forks.
 
 `create-vms.sh` reads `vms/nodes.conf` and sources `vms/<role>.conf` per
 node, so tuning resources or adding a host is a config-file edit.
@@ -59,7 +59,7 @@ node, so tuning resources or adding a host is a config-file edit.
 - **`virt-install --cdrom` blocks forever.** `create-vms.sh` backgrounds it and kills the wrapper after `virsh domstate=running`.
 - **Agent installer issues `poweroff` post-write-to-disk.** libvirt's default `on_poweroff=destroy` would orphan the install. Run `host-setup/autostart-watcher.sh start` BEFORE `create-vms.sh` — it polls `domstate` and restarts shut-off VMs within ~2 s. `create-vms.sh` launches it automatically.
 - **`agent-config.yaml` `rootDeviceHints.deviceName` must match the actual guest device.** Mismatch causes a silent "ready but never installing" stall.
-- **`bus='nvme'` is rejected by libvirt's domain XML schema.** Masters use `virtio-blk` (`/dev/vda`), arbiter uses `virtio-scsi` (`/dev/sda`). The `coreos-boot-disk` symlink in `deploy/01-/02-` makes the MachineConfigs bus-agnostic.
+- **`bus='nvme'` is rejected by libvirt's domain XML schema.** Masters use `virtio-blk` (`/dev/vda`), arbiter uses `virtio-scsi` (`/dev/sda`). The `coreos-boot-disk` symlink in `deploy/templates/01-/02-` makes the MachineConfigs bus-agnostic.
 - **Secure Boot off in firmware.** `create-vms.sh` uses the non-SB OVMF firmware variant — required for Portworx `px.ko`.
 - **`virt-install`'s disk-size check sums VIRTUAL sizes.** `create-vms.sh` passes `--check disk_size=off,path_in_use=off`.
 

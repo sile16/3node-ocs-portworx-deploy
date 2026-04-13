@@ -9,7 +9,7 @@
 # Inputs (committed in this directory):
 #   install-config.yaml.template    — has __PULL_SECRET__ / __SSH_PUBKEY__ placeholders
 #   agent-config.yaml               — hosts, MACs, rootDeviceHints, rendezvousIP
-#   ../../deploy/01-machineconfig-*.yaml  — MCs copied from the canonical deploy/ dir
+#   ../../deploy/templates/0[12]-machineconfig-*.yaml  — MCs copied from the canonical deploy/templates/ dir
 #
 # Inputs (from outside the repo):
 #   ~/.local/pullsecret             — Red Hat pull secret JSON

@@ -1,5 +1,6 @@
 # Portworx Enterprise operator (OLM) — namespace + OperatorGroup + Subscription.
-# install-portworx.sh applies this then waits for the operator before applying 04-.
+# Apply after 04-prepare-for-portworx.sh; wait for the operator Deployment to
+# become Available, then apply 06-portworx-storagecluster.yaml.
 apiVersion: v1
 kind: Namespace
 metadata:

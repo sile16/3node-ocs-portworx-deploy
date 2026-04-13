@@ -4,8 +4,8 @@
 #
 # CSV column names become UPPERCASE env vars. Templates reference them as
 # ${VAR}. Only columns defined in the CSV header are substituted — unrelated
-# shell variables (e.g. ${KUBECONFIG}, ${HERE}, bash array refs in
-# install-portworx.sh) pass through unchanged. No shell eval.
+# shell variables (e.g. ${KUBECONFIG}, ${HERE}, bash array refs inside
+# 04-prepare-for-portworx.sh) pass through unchanged. No shell eval.
 
 set -euo pipefail
 
@@ -83,7 +83,7 @@ tail -n +2 "$CSV" | tr -d '\r' | while IFS=',' read -r -a values; do
     esac
     output="${site_out}/${out_name}"
     subst < "$template" > "$output"
-    # Preserve executable bit so rendered install-portworx.sh is runnable.
+    # Preserve executable bit so rendered .sh scripts stay runnable.
     [ -x "$template" ] && chmod +x "$output"
     echo "[$site] rendered $output"
   done
