@@ -10,7 +10,7 @@ metadata:
 apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
 metadata:
-  name: portworx
+  name: portworx-og
   namespace: portworx
 spec:
   targetNamespaces:

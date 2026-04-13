@@ -91,10 +91,10 @@ mkdir -p "$GEN/openshift"
 # whole point of having deploy/ as a single source of truth. The file
 # names just need to start with something openshift-install agent can
 # recognize as a manifest (any .yaml works).
-DEPLOY_DIR="${HERE}/../../deploy"
-[ -d "$DEPLOY_DIR" ] || { echo "FATAL: deploy/ dir not found at $DEPLOY_DIR" >&2; exit 1; }
-cp "${DEPLOY_DIR}/01-machineconfig-master.yaml"  "$GEN/openshift/98-px-storage-master.yaml"
-cp "${DEPLOY_DIR}/02-machineconfig-arbiter.yaml" "$GEN/openshift/98-px-storage-arbiter.yaml"
+DEPLOY_TPL="${HERE}/../../deploy/templates"
+[ -d "$DEPLOY_TPL" ] || { echo "FATAL: deploy/templates not found at $DEPLOY_TPL" >&2; exit 1; }
+cp "${DEPLOY_TPL}/01-machineconfig-master.yaml"  "$GEN/openshift/98-px-storage-master.yaml"
+cp "${DEPLOY_TPL}/02-machineconfig-arbiter.yaml" "$GEN/openshift/98-px-storage-arbiter.yaml"
 
 # KVM-specific MachineConfigs from ./machineconfigs/.
 #

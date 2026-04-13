@@ -1,7 +1,6 @@
 # Portworx StorageCluster — 2+1 arbiter (TNA), PX-StoreV2, RF=2.
 # ${MASTER1_HOST} / ${MASTER2_HOST} / ${ARBITER_HOST} are filled per-site by
-# deploy/run_before_px_install.sh from the site's row in deploy/sites.csv.
-# Rendered output lives at deploy/sites/<site>/04-portworx-storagecluster.yaml.
+
 apiVersion: core.libopenstorage.org/v1
 kind: StorageCluster
 metadata:
@@ -51,22 +50,27 @@ spec:
   # partition at install time, switch to `useAllWithPartitions` + a raw-path
   # systemMetadataDevice (e.g. /dev/vda5) — see docs/portworx-design.md.
   # Otherwise add px-data post-install: pxctl service drive add -d /dev/disk/by-partlabel/px-data --newpool
+  # Per-node metadata device tokens — 04-prepare-for-portworx.sh substitutes
+  # each with the raw device path resolved live from the node (e.g.
+  # /dev/vda5 on libvirt, /dev/sda5 or /dev/nvme0n1p5 on bare metal).
+  # Distinct tokens per stanza keep the prepare script's replace logic
+  # to three plain sed substitutions — no per-stanza state tracking.
   nodes:
     - selector:
         nodeName: ${MASTER1_HOST}
       storage:
         useAll: true
-        systemMetadataDevice: /dev/disk/by-partlabel/px-metadata
+        systemMetadataDevice: ${MASTER1_META_DEV}
 
     - selector:
         nodeName: ${MASTER2_HOST}
       storage:
         useAll: true
-        systemMetadataDevice: /dev/disk/by-partlabel/px-metadata
+        systemMetadataDevice: ${MASTER2_META_DEV}
 
     - selector:
         nodeName: ${ARBITER_HOST}
       storage:
         devices: []
         useAll: false
-        kvdbDevice: /dev/disk/by-partlabel/px-metadata
+        kvdbDevice: ${ARBITER_META_DEV}
