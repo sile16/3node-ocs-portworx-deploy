@@ -5,12 +5,14 @@
 #   1. Label masters / arbiter so 06-'s placement nodeAffinity matches.
 #   2. Resolve /dev/disk/by-partlabel/px-metadata → the actual raw device
 #      on each node (e.g. /dev/vda5 on libvirt, /dev/sda5 or
-#      /dev/nvme0n1p5 on bare metal) and patch the adjacent
-#      06-portworx-storagecluster.yaml in place.
-#
+#      /dev/nvme0n1p5 on bare metal) and generate
+#      06-portworx-storagecluster.yaml from the adjacent .yaml.in
+#      template.
 #
 # Must run AFTER the cluster is installed (MCs rolled so the
 # px-metadata partition exists) and BEFORE applying 06-.
+# Rerunning is safe: .yaml.in is read-only input; .yaml is regenerated
+# from it each run, so changed device mappings pick up cleanly.
 
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -52,24 +54,26 @@ do
   printf "  %-30s %s\n" "$host" "$dev"
 done
 
-# ── patch 06- in place ───────────────────────────────────────────────────
-# 06- has a unique token per stanza (${MASTER1_META_DEV},
-# ${MASTER2_META_DEV}, ${ARBITER_META_DEV}), so three plain sed
-# replaces are enough — no per-stanza state tracking needed.
-SC="$HERE/06-portworx-storagecluster.yaml"
-[ -f "$SC" ] || { echo "FATAL: $SC not found" >&2; exit 1; }
+# ── generate 06-…yaml from 06-…yaml.in ───────────────────────────────────
+# 06-*.yaml.in has one unique token per stanza (${MASTER1_META_DEV},
+# ${MASTER2_META_DEV}, ${ARBITER_META_DEV}); three plain sed replaces are
+# enough. The .in is untouched so rerunning this script always regenerates
+# .yaml cleanly from a known-good source.
+SRC="$HERE/06-portworx-storagecluster.yaml.in"
+OUT="$HERE/06-portworx-storagecluster.yaml"
+[ -f "$SRC" ] || { echo "FATAL: $SRC not found" >&2; exit 1; }
 
-sed -i \
+sed \
   -e "s|\${MASTER1_META_DEV}|$MASTER1_META|g" \
   -e "s|\${MASTER2_META_DEV}|$MASTER2_META|g" \
   -e "s|\${ARBITER_META_DEV}|$ARBITER_META|g" \
-  "$SC"
+  "$SRC" > "$OUT"
 
 # Sanity: no META_DEV placeholders OR stray by-partlabel refs should remain.
-if grep -qE '\$\{(MASTER1|MASTER2|ARBITER)_META_DEV\}|by-partlabel/px-metadata' "$SC"; then
-  echo "FATAL: unrendered placeholders or partlabel refs still in $SC:" >&2
-  grep -nE '\$\{(MASTER1|MASTER2|ARBITER)_META_DEV\}|by-partlabel/px-metadata' "$SC" >&2
+if grep -qE '\$\{(MASTER1|MASTER2|ARBITER)_META_DEV\}|by-partlabel/px-metadata' "$OUT"; then
+  echo "FATAL: unrendered placeholders or partlabel refs still in $OUT:" >&2
+  grep -nE '\$\{(MASTER1|MASTER2|ARBITER)_META_DEV\}|by-partlabel/px-metadata' "$OUT" >&2
   exit 1
 fi
 
-echo "06-portworx-storagecluster.yaml patched with per-node raw device paths."
+echo "Generated 06-portworx-storagecluster.yaml from .yaml.in with per-node raw device paths."

@@ -4,6 +4,17 @@ Reference deployment for a 3-node OpenShift 4.21 TNA cluster (2 masters + 1
 arbiter) with Portworx Enterprise providing RF=2 storage. Target: many-site
 USB-ISO bare-metal rollouts.
 
+Key Requirements: 
+
+- Process needs to be automated across many sites in repeatable fashion.
+- Arbiter node has a single drive for OS and portworx kvdb 
+- Needs to partition prior to /var exampanding and using full disk.
+- Need to map partition info to a block device.
+
+Challenges: 
+
+- Physical hosts have different boot device names we have seen sda, sdb, nvme0n1, (vda in kvm)
+
 ## What to read first
 
 Everything you actually deploy lives in **`deploy/`**. Site-specific values live
@@ -24,7 +35,7 @@ deploy/
 │   ├── 06-portworx-storagecluster.yaml         TNA StorageCluster; nodeName fields templated
 │   ├── 07-portworx-register.sh                 optional site-specific license / px-central registration
 │   ├── aicli_parameters.yml                    aicli input: VIPs, hosts, MACs, pull secret
-│   └── check_status.sh                         one-shot health snapshot (OCP + PX), flags known-bad symptoms
+│   └── check_px_status.sh                      one-shot health snapshot (OCP + PX), flags known-bad symptoms
 └── sites/<site>/                           rendered, per-site, gitignored — what the site operator ships against
 ```
 
@@ -45,11 +56,15 @@ aicli create deployment --paramfile aicli_parameters.yml prod-aus
 # 2. Portworx bring-up — run the numbered steps in order.
 export KUBECONFIG=/path/to/kubeconfig
 oc apply -f 03-configmap-clulster-monitoring.yaml
-./04-prepare-for-portworx.sh               # labels nodes for PX placement
-oc apply -f 05-portworx-subscription.yaml  # wait for portworx-operator Available
+./04-prepare-for-portworx.sh               # labels nodes + generates 06-*.yaml from .yaml.in
+oc apply -f 05-portworx-subscription.yaml
+# installPlanApproval is Manual + pinned via startingCSV — approve before waiting.
+oc -n portworx patch "$(oc -n portworx get installplan -o name | head -1)" \
+  --type merge -p '{"spec":{"approved":true}}'
+oc -n portworx wait --for=condition=Available deploy/portworx-operator --timeout=10m
 oc apply -f 06-portworx-storagecluster.yaml
 ./07-portworx-register.sh                  # optional, site-specific license
-./check_status.sh                          # sanity check at any point
+./check_px_status.sh                       # sanity check at any point
 ```
 
 ## Pre-install checklist
@@ -68,8 +83,11 @@ oc apply -f 06-portworx-storagecluster.yaml
 
 The MachineConfigs use `/dev/disk/by-id/coreos-boot-disk` — a stable RHCOS
 udev symlink — so they are hardware-agnostic across SSD/NVMe/SATA targets.
-`aicli_parameters.yml`'s `installation_disk:` is consumed by the assisted
-installer *before* that symlink exists, so it still needs a real device path.
+The assisted installer picks the install disk itself (largest by default);
+if a site needs to constrain it, add a per-host `installation_disk_id:` to
+the `hosts:` entries in `templates/aicli_parameters.yml`. PX's own per-node
+metadata device is resolved at install time by `04-prepare-for-portworx.sh`
+(see README → Known-broken-configs for the why).
 
 ## Repo layout
 
@@ -118,7 +136,10 @@ cd test/kvm
 openshift-install agent wait-for install-complete --dir=./generated
 cd ../../deploy && ./render.sh <site> && cd sites/<site> && \
   oc apply -f 03-configmap-clulster-monitoring.yaml && ./04-prepare-for-portworx.sh && \
-  oc apply -f 05-portworx-subscription.yaml && oc apply -f 06-portworx-storagecluster.yaml
+  oc apply -f 05-portworx-subscription.yaml && \
+  oc -n portworx patch "$(oc -n portworx get installplan -o name | head -1)" --type merge -p '{"spec":{"approved":true}}' && \
+  oc -n portworx wait --for=condition=Available deploy/portworx-operator --timeout=10m && \
+  oc apply -f 06-portworx-storagecluster.yaml
 cd ../test/kvm && ./teardown.sh            # wipe VMs + volumes + generated/
 ```
 

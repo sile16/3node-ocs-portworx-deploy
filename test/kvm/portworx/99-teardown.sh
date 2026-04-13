@@ -37,7 +37,7 @@ csv=$("$OC" -n portworx get subscription portworx-certified -o jsonpath='{.statu
 
 echo
 echo "=== deleting OperatorGroup + namespace ==="
-"$OC" -n portworx delete operatorgroup portworx --ignore-not-found
+"$OC" -n portworx delete operatorgroup portworx-og --ignore-not-found
 "$OC" delete namespace portworx --ignore-not-found
 
 echo

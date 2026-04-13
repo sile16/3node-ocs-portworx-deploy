@@ -1,15 +1,10 @@
 #!/usr/bin/env bash
-# check_status.sh — one-shot health snapshot.
-#
-# Answers, in order:
+# One-shot health snapshot. Answers, in order:
 #   1. Is the OCP cluster reachable and healthy enough to install on?
 #   2. What phase is the Portworx StorageCluster in?
 #   3. Are the px-cluster pods Ready? Any CrashLoopBackOff?
 #   4. Any pxctl alerts, and do any match a KNOWN-BAD pattern from
 #      README → Known-broken-configs?
-#
-#   export KUBECONFIG=/path/to/kubeconfig
-#   ./check_status.sh
 
 set -uo pipefail
 : "${KUBECONFIG:?KUBECONFIG not set}"

@@ -91,13 +91,31 @@ echo "### sudo sgdisk --print ${BOOT}"
 sudo sgdisk --print "${BOOT}" 2>/dev/null || echo "(sgdisk failed on ${BOOT})"
 
 echo
-echo "### px-storage partlabel symlink check"
-if [ -e /dev/disk/by-partlabel/px-storage ]; then
-  tgt="$(readlink -f /dev/disk/by-partlabel/px-storage)"
-  echo "PASS: /dev/disk/by-partlabel/px-storage -> $tgt"
+echo "### px-metadata partlabel symlink check (expected on every node)"
+if [ -e /dev/disk/by-partlabel/px-metadata ]; then
+  echo "PASS: /dev/disk/by-partlabel/px-metadata -> $(readlink -f /dev/disk/by-partlabel/px-metadata)"
 else
-  echo "FAIL: /dev/disk/by-partlabel/px-storage missing"
+  echo "FAIL: /dev/disk/by-partlabel/px-metadata missing"
 fi
+
+echo
+echo "### px-data partlabel symlink check (expected on masters only)"
+case "$(hostname)" in
+  master-*)
+    if [ -e /dev/disk/by-partlabel/px-data ]; then
+      echo "PASS: /dev/disk/by-partlabel/px-data -> $(readlink -f /dev/disk/by-partlabel/px-data)"
+    else
+      echo "FAIL: /dev/disk/by-partlabel/px-data missing on master"
+    fi
+    ;;
+  *)
+    if [ -e /dev/disk/by-partlabel/px-data ]; then
+      echo "WARN: /dev/disk/by-partlabel/px-data unexpectedly present on non-master"
+    else
+      echo "OK: no px-data on non-master (expected — arbiter is storageless)"
+    fi
+    ;;
+esac
 
 echo
 echo "### df -h"

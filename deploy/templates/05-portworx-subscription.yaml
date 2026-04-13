@@ -1,6 +1,11 @@
 # Portworx Enterprise operator (OLM) — namespace + OperatorGroup + Subscription.
-# Apply after 04-prepare-for-portworx.sh; wait for the operator Deployment to
-# become Available, then apply 06-portworx-storagecluster.yaml.
+# Apply after 04-prepare-for-portworx.sh. Because installPlanApproval is
+# Manual, OLM creates the InstallPlan in a non-approved state; approve it
+# before waiting for the operator Deployment:
+#   IP=$(oc -n portworx get installplan -o name | head -1)
+#   oc -n portworx patch "$IP" --type merge -p '{"spec":{"approved":true}}'
+#   oc -n portworx wait --for=condition=Available deploy/portworx-operator --timeout=10m
+# Then apply 06-portworx-storagecluster.yaml.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -27,4 +32,9 @@ spec:
   name: portworx-certified
   source: certified-operators
   sourceNamespace: openshift-marketplace
-  installPlanApproval: Automatic
+  # Pin to the CSV the reference deployment was validated against so
+  # a catalog update doesn't silently upgrade the operator out from
+  # under a StorageCluster pinned to oci-monitor:3.6.0 in 06-.
+  # Bump both together when intentionally moving versions.
+  installPlanApproval: Manual
+  startingCSV: portworx-operator.v26.1.0

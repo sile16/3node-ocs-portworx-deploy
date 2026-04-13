@@ -21,8 +21,11 @@ export KUBECONFIG=$(aicli info cluster <cluster_name> -f kubeconfig)
 
 # Portworx bring-up, in numeric order:
 oc apply -f 03-configmap-clulster-monitoring.yaml
-./04-prepare-for-portworx.sh       # labels + resolves per-node raw metadata device
+./04-prepare-for-portworx.sh       # labels + resolves per-node raw metadata device, generates 06-*.yaml
 oc apply -f 05-portworx-subscription.yaml
+# InstallPlan is Manual + pinned via startingCSV; approve it before waiting.
+IP=$(oc -n portworx get installplan -o name | head -1)
+oc -n portworx patch "$IP" --type merge -p '{"spec":{"approved":true}}'
 oc -n portworx wait --for=condition=Available deployment/portworx-operator --timeout=10m
 oc apply -f 06-portworx-storagecluster.yaml
 ./07-portworx-register.sh          # optional license activation
@@ -71,6 +74,8 @@ cd ../../deploy/sites/test-kvm
 oc apply -f 03-configmap-clulster-monitoring.yaml
 ./04-prepare-for-portworx.sh
 oc apply -f 05-portworx-subscription.yaml
+IP=$(oc -n portworx get installplan -o name | head -1)
+oc -n portworx patch "$IP" --type merge -p '{"spec":{"approved":true}}'
 oc -n portworx wait --for=condition=Available deployment/portworx-operator --timeout=10m
 oc apply -f 06-portworx-storagecluster.yaml
 ./check_px_status.sh

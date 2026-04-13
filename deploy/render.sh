@@ -17,10 +17,6 @@ OUT="${HERE}/sites"
 [ -f "$CSV" ]       || { echo "FATAL: $CSV not found"       >&2; exit 1; }
 [ -d "$TEMPLATES" ] || { echo "FATAL: $TEMPLATES not found" >&2; exit 1; }
 
-# sites/ is derived output — wipe on every render so stale per-site files
-# from an older template set can't linger in sites/<site>/.
-rm -rf "$OUT"
-
 site_filter="${1:-}"
 
 # Header row → uppercase column-name array (env-var names).
@@ -58,9 +54,16 @@ subst() {
   '
 }
 
+declare -A seen_sites=()
+
 tail -n +2 "$CSV" | tr -d '\r' | while IFS=',' read -r -a values; do
   [ "${#values[@]}" -gt 0 ] || continue
   [ -n "${values[0]:-}" ]   || continue   # skip blank rows
+
+  if [ "${#values[@]}" -ne "${#headers[@]}" ]; then
+    echo "FATAL: row field-count ${#values[@]} != header count ${#headers[@]}: ${values[*]}" >&2
+    exit 1
+  fi
 
   for i in "${!headers[@]}"; do
     export "${headers[$i]}=${values[$i]:-}"
@@ -68,9 +71,15 @@ tail -n +2 "$CSV" | tr -d '\r' | while IFS=',' read -r -a values; do
 
   site="${SITE:-}"
   [ -n "$site" ] || { echo "WARN: row has no 'site' column — skipping" >&2; continue; }
+  [[ "$site" =~ ^[A-Za-z0-9_.-]+$ ]] || { echo "FATAL: unsafe site name '$site' (allowed: A-Za-z0-9_.-)" >&2; exit 1; }
+  [ -z "${seen_sites[$site]:-}" ]     || { echo "FATAL: duplicate site '$site' in sites.csv" >&2; exit 1; }
+  seen_sites[$site]=1
+
   [ -z "$site_filter" ] || [ "$site" = "$site_filter" ] || continue
 
   site_out="${OUT}/${site}"
+  # Wipe just this site's output so other sites rendered earlier stay intact.
+  rm -rf "$site_out"
   mkdir -p "$site_out"
 
   for template in "$TEMPLATES"/*; do
