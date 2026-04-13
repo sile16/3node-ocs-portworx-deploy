@@ -1,0 +1,32 @@
+---
+# Per-site aicli parameters — rendered by deploy/render.sh from deploy/sites.csv.
+# Edit deploy/templates/aicli_parameters.yml (the rendered copy at
+# deploy/sites/<site>/aicli_parameters.yml is regenerated on every render).
+# Usage at the site:
+#   cd deploy
+#   aicli create cluster    --paramfile sites/${SITE}/aicli_parameters.yml ${CLUSTER_NAME}
+#   aicli create deployment --paramfile sites/${SITE}/aicli_parameters.yml ${CLUSTER_NAME}
+
+base_dns_domain: ${BASE_DNS_DOMAIN}
+openshift_version: "4.21"
+control_plane_count: 2
+pull_secret: ~/.local/pullsecret
+
+network_type: OVNKubernetes
+sno: false
+full_iso: true
+manifests: .
+
+api_vip: ${API_VIP}
+ingress_vip: ${INGRESS_VIP}
+
+hosts:
+  - name: ${MASTER1_HOST}
+    mac: "${MASTER1_MAC}"
+    role: master
+  - name: ${MASTER2_HOST}
+    mac: "${MASTER2_MAC}"
+    role: master
+  - name: ${ARBITER_HOST}
+    mac: "${ARBITER_MAC}"
+    role: arbiter

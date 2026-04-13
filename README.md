@@ -6,43 +6,59 @@ USB-ISO bare-metal rollouts.
 
 ## What to read first
 
-Everything you actually deploy lives in **`deploy/`**. Four manifests + one
-aicli paramfile + one orchestration script — self-contained.
+Everything you actually deploy lives in **`deploy/`**. Site-specific values live
+in `sites.csv`; `render.sh` renders `templates/` into `sites/<site>/` so each
+site gets its own self-contained directory. Files in `templates/` are numbered
+to match the order an operator runs them at the site.
 
 ```
 deploy/
-├── aicli_parameters.yml             aicli input: VIPs, hosts, MACs, pull secret
-├── 01-machineconfig-master.yaml     master px-metadata + px-data partitions
-├── 02-machineconfig-arbiter.yaml    arbiter px-metadata partition
-├── 03-portworx-subscription.yaml    OLM install of portworx-certified
-├── 04-portworx-storagecluster.yaml  TNA StorageCluster; nodeName placeholders are script-filled
-└── install-portworx.sh              labels nodes + applies 03/04, fills nodeName placeholders
+├── sites.csv                               one row per site: hostnames, MACs, VIPs, DNS
+├── render.sh                               awk-based template render, sites.csv × templates/ → sites/<site>/
+├── templates/                              canonical inputs; ${VAR} placeholders per sites.csv columns
+│   ├── 01-machineconfig-master.yaml            master px-metadata + px-data partitions (agent-installer manifest)
+│   ├── 02-machineconfig-arbiter.yaml           arbiter px-metadata partition            (agent-installer manifest)
+│   ├── 03-configmap-clulster-monitoring.yaml   cluster-monitoring user-workload enable
+│   ├── 04-prepare-for-portworx.sh              label master/arbiter nodes for placement
+│   ├── 05-portworx-subscription.yaml           OLM install of portworx-certified
+│   ├── 06-portworx-storagecluster.yaml         TNA StorageCluster; nodeName fields templated
+│   ├── 07-portworx-register.sh                 optional site-specific license / px-central registration
+│   ├── aicli_parameters.yml                    aicli input: VIPs, hosts, MACs, pull secret
+│   └── check_status.sh                         one-shot health snapshot (OCP + PX), flags known-bad symptoms
+└── sites/<site>/                           rendered, per-site, gitignored — what the site operator ships against
 ```
 
 ## Install flow (bare metal)
 
 ```sh
-# 1. Cluster install via aicli (ISO burnt to USB, boot all 3 nodes).
+# 0. Add/update your site row in deploy/sites.csv, then render its dir.
 cd deploy
-aicli create cluster    --paramfile aicli_parameters.yml tna
-aicli create deployment --paramfile aicli_parameters.yml tna
+./render.sh austin                         # → deploy/sites/austin/*
+
+# 1. Cluster install via aicli (ISO burnt to USB, boot all 3 nodes).
+#    01-/02- MachineConfigs are packed into the agent installer ISO here.
+cd sites/austin
+aicli create cluster    --paramfile aicli_parameters.yml prod-aus
+aicli create deployment --paramfile aicli_parameters.yml prod-aus
 # wait ~30-60 min for install-complete
 
-# 2. Portworx — single script.
+# 2. Portworx bring-up — run the numbered steps in order.
 export KUBECONFIG=/path/to/kubeconfig
-./install-portworx.sh
-
-# 3. (optional) site-specific license activation.
-#    Drop deploy/99-portworx-register.sh (gitignored) and install-portworx.sh runs it.
+oc apply -f 03-configmap-clulster-monitoring.yaml
+./04-prepare-for-portworx.sh               # labels nodes for PX placement
+oc apply -f 05-portworx-subscription.yaml  # wait for portworx-operator Available
+oc apply -f 06-portworx-storagecluster.yaml
+./07-portworx-register.sh                  # optional, site-specific license
+./check_status.sh                          # sanity check at any point
 ```
 
 ## Pre-install checklist
 
 - [ ] **Secure Boot disabled** in BIOS on all 3 nodes — Portworx `px.ko` is unsigned. See `docs/portworx-design.md`.
 - [ ] Install disks ≥256 GB (170 GiB rootfs + 64 GiB px-metadata + margin).
-- [ ] `pull_secret:` in `aicli_parameters.yml` points at a valid pull secret from [console.redhat.com](https://console.redhat.com/openshift/install/pull-secret).
-- [ ] `api_vip:` and `ingress_vip:` are free, routable IPs on the machine network.
-- [ ] Hostnames are entered only in `aicli_parameters.yml`; Portworx `nodeName` placeholders are filled from live node roles by `install-portworx.sh`.
+- [ ] `pull_secret:` path in `deploy/templates/aicli_parameters.yml` points at a valid pull secret from [console.redhat.com](https://console.redhat.com/openshift/install/pull-secret).
+- [ ] `api_vip` and `ingress_vip` columns in `deploy/sites.csv` are free, routable IPs on the site's machine network.
+- [ ] Hostnames and MACs are set only in `deploy/sites.csv`; those same values land in both `aicli_parameters.yml` (via the agent installer) and `06-portworx-storagecluster.yaml` (`nodeName` fields), rendered together by `render.sh`.
 - [ ] Network between nodes allows Portworx ports (TCP 17001-17022, UDP 17002 — `startPort: 17001` in `04-`).
 
 ## Hardware assumptions
@@ -100,7 +116,9 @@ cd test/kvm
 ./generate-iso.sh                          # build-iso.sh + upload to libvirt pool
 ./create-vms.sh                            # define + boot 3 VMs from vms/*.conf
 openshift-install agent wait-for install-complete --dir=./generated
-cd ../../deploy && ./install-portworx.sh   # Portworx onto the fresh cluster
+cd ../../deploy && ./render.sh <site> && cd sites/<site> && \
+  oc apply -f 03-configmap-clulster-monitoring.yaml && ./04-prepare-for-portworx.sh && \
+  oc apply -f 05-portworx-subscription.yaml && oc apply -f 06-portworx-storagecluster.yaml
 cd ../test/kvm && ./teardown.sh            # wipe VMs + volumes + generated/
 ```
 
@@ -121,6 +139,7 @@ in `test/kvm/README.md`. Full reproduction runbook is `docs/RUNBOOK.md`.
 | Config | Fails how | Workaround |
 |---|---|---|
 | `useAllWithPartitions: true` + `systemMetadataDevice: /dev/disk/by-partlabel/px-metadata` | PX doesn't resolve the partlabel symlink before cross-referencing against discovery → `/dev/vda5` lands in both metadata + storage lists → "device has filesystem on it" | Bug is path-resolution, not exclusion logic. Use raw path (`/dev/vda5`) for the metadata device — works (retest #9 PASS), but per-host hardware-specific. Default ship: `useAll: true` (skips px-data; add post-install via `pxctl service drive add`). |
+| `useAll: true` + `systemMetadataDevice: /dev/disk/by-id/<custom-symlink>` pointing at a whole raw disk | Same bug class as partlabel — PX does not canonicalize the symlink before building its exclusion list. `useAll` enumerates the underlying `/dev/sdc` as a storage candidate, writes its own `pwxN` FS label during init, then `InitSystemMetadata` fails with `device /dev/disk/by-id/px-metadata-disk has a filesystem on it with labels any:pwxN`. Proves the bug is **symlink-general**, not partlabel-specific; `useAll` does **not** dodge it when the symlink target is a whole disk that `useAll` discovers. Tested 2026-04-13 on PX 3.6.0 with a dedicated 64 GiB metadata disk surfaced via udev rule (`deploy/01-` drops `/etc/udev/rules.d/99-px-metadata.rules`). | Same as partlabel: use a raw path (`/dev/sdc`) for `systemMetadataDevice`. Not shipped — per-node hardware-specific path breaks the hardware-agnostic shape of `deploy/`. Secondary lesson from the same run: virtio-blk silently truncates disk `serial=` to 20 chars, which strips any hostname-based suffix — the test env needed to switch masters to `virtio-scsi` (SCSI VPD 0x80 accepts full string + scsi_id populates `ID_SERIAL_SHORT`) for the udev match to fire. |
 | `nodes[].selector.labelSelector` on TNA StorageCluster (instead of `nodeName`) | **Admission accepts it** (`oc apply --dry-run=server` passes, object stores fine), then the operator reconcile rejects at `storagecluster.go:3320`: `"Failed to create TNA NodeSpecs: NodeSpec for arbiter node <hostname> not found, please add it to the storage cluster spec"`. StorageCluster phase flips to `Degraded`. | TNA reconcile does an exact `nodeName` lookup per node — labelSelector matches aren't consulted. Ship exact `nodeName` on every entry; `install-portworx.sh` substitutes from live `oc get nodes`. Tested on PX 26.1.0 operator / 3.6.0 runtime, 2026-04-12. |
 
 ## License

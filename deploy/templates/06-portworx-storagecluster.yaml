@@ -1,5 +1,7 @@
 # Portworx StorageCluster — 2+1 arbiter (TNA), PX-StoreV2, RF=2.
-# install-portworx.sh replaces __*_NODE_NAME__ placeholders from live `oc get nodes`.
+# ${MASTER1_HOST} / ${MASTER2_HOST} / ${ARBITER_HOST} are filled per-site by
+# deploy/run_before_px_install.sh from the site's row in deploy/sites.csv.
+# Rendered output lives at deploy/sites/<site>/04-portworx-storagecluster.yaml.
 apiVersion: core.libopenstorage.org/v1
 kind: StorageCluster
 metadata:
@@ -51,19 +53,19 @@ spec:
   # Otherwise add px-data post-install: pxctl service drive add -d /dev/disk/by-partlabel/px-data --newpool
   nodes:
     - selector:
-        nodeName: __MASTER_0_NODE_NAME__  #Replaced by install-portworx.sh DO NOT MODIFY
+        nodeName: ${MASTER1_HOST}
       storage:
         useAll: true
         systemMetadataDevice: /dev/disk/by-partlabel/px-metadata
 
     - selector:
-        nodeName: __MASTER_1_NODE_NAME__  #Replaced by install-portworx.sh DO NOT MODIFY
+        nodeName: ${MASTER2_HOST}
       storage:
         useAll: true
         systemMetadataDevice: /dev/disk/by-partlabel/px-metadata
 
     - selector:
-        nodeName: __ARBITER_NODE_NAME__  #Replaced by install-portworx.sh DO NOT MODIFY
+        nodeName: ${ARBITER_HOST}
       storage:
         devices: []
         useAll: false
