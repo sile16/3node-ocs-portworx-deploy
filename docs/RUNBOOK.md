@@ -21,7 +21,7 @@ export KUBECONFIG=$(aicli info cluster <cluster_name> -f kubeconfig)
 
 # Portworx bring-up, in numeric order:
 oc apply -f 98-px2-configmap-clulster-monitoring.yaml
-./98-px1-prepare.sh       # labels + resolves per-node raw metadata device, generates 98-px4-storagecluster.yaml
+./98-px1-prepare.sh       # labels masters + arbiter (idempotent)
 oc apply -f 98-px3-subscription.yaml
 # InstallPlan is Manual + pinned via startingCSV; approve it before waiting.
 IP=$(oc -n portworx get installplan -o name | head -1)

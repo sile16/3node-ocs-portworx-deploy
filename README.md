@@ -29,10 +29,10 @@ deploy/
 ├── templates/                              canonical inputs; ${VAR} placeholders per sites.csv columns
 │   ├── 98-machineconfig-master.yaml                 master px-metadata + px-data partitions (agent-installer manifest; 98- = customer MC layer)
 │   ├── 98-machineconfig-arbiter.yaml                arbiter px-metadata partition            (agent-installer manifest)
-│   ├── 98-px1-prepare.sh                            label master/arbiter nodes + resolve per-node raw metadata device; generates 98-px4-storagecluster.yaml
+│   ├── 98-px1-prepare.sh                            label masters + arbiter so StorageCluster's nodeAffinity matches
 │   ├── 98-px2-configmap-clulster-monitoring.yaml    cluster-monitoring user-workload enable
 │   ├── 98-px3-subscription.yaml                     OLM install of portworx-certified
-│   ├── 98-px4-storagecluster.yaml.template          TNA StorageCluster source; nodeName + per-node metadata-device tokens. 98-px1-prepare generates the applied 98-px4-storagecluster.yaml from this.
+│   ├── 98-px4-storagecluster.yaml                   TNA StorageCluster; uses partlabel symlink for px-metadata (safe with `useAll: true`)
 │   ├── 98-px5-register.sh                           optional site-specific license / px-central registration
 │   ├── aicli_parameters.yml                    aicli input: VIPs, hosts, MACs, pull secret
 │   └── check_px_status.sh                      one-shot health snapshot (OCP + PX), flags known-bad symptoms
@@ -61,7 +61,7 @@ export KUBECONFIG=/path/to/kubeconfig
 ./98-px0-enroll-mok-secure-boot.sh --verify           # confirms Portworx CA is in each node's enrolled MOKs
 
 # 3. Portworx bring-up — run the numbered steps in order.
-./98-px1-prepare.sh                       # labels nodes + generates 98-px4-storagecluster.yaml from .yaml.template
+./98-px1-prepare.sh                       # labels masters + arbiter
 oc apply -f 98-px2-configmap-clulster-monitoring.yaml
 oc apply -f 98-px3-subscription.yaml
 # installPlanApproval is Manual + pinned via startingCSV — approve before waiting.
@@ -79,8 +79,8 @@ oc apply -f 98-px4-storagecluster.yaml
 - [ ] Install disks ≥256 GB (170 GiB rootfs + 64 GiB px-metadata + margin).
 - [ ] `pull_secret:` path in `deploy/templates/aicli_parameters.yml` points at a valid pull secret from [console.redhat.com](https://console.redhat.com/openshift/install/pull-secret).
 - [ ] `api_vip` and `ingress_vip` columns in `deploy/sites.csv` are free, routable IPs on the site's machine network.
-- [ ] Hostnames and MACs are set only in `deploy/sites.csv`; those same values land in both `aicli_parameters.yml` (via the agent installer) and `98-px4-storagecluster.yaml.template` (`nodeName` fields) at render time. 98-px1-prepare.sh then resolves per-node metadata-device tokens in that template and writes the final `98-px4-storagecluster.yaml`.
-- [ ] Network between nodes allows Portworx ports (TCP 17001-17022, UDP 17002 — `startPort: 17001` in `98-px4-storagecluster.yaml.template`).
+- [ ] Hostnames and MACs are set only in `deploy/sites.csv`; those same values land in both `aicli_parameters.yml` (via the agent installer) and `98-px4-storagecluster.yaml` (`nodeName` fields) at render time.
+- [ ] Network between nodes allows Portworx ports (TCP 17001-17022, UDP 17002 — `startPort: 17001` in `98-px4-storagecluster.yaml`).
 
 ## Hardware assumptions
 
@@ -91,9 +91,10 @@ The MachineConfigs use `/dev/disk/by-id/coreos-boot-disk` — a stable RHCOS
 udev symlink — so they are hardware-agnostic across SSD/NVMe/SATA targets.
 The assisted installer picks the install disk itself (largest by default);
 if a site needs to constrain it, add a per-host `installation_disk_id:` to
-the `hosts:` entries in `templates/aicli_parameters.yml`. PX's own per-node
-metadata device is resolved at install time by `98-px1-prepare.sh`
-(see README → Known-broken-configs for the why).
+the `hosts:` entries in `templates/aicli_parameters.yml`. PX references the
+px-metadata partition via its `/dev/disk/by-partlabel/` symlink, which stays
+hardware-agnostic because the partition label is set by the same
+MachineConfig regardless of boot-disk device name.
 
 ## Repo layout
 
@@ -163,12 +164,13 @@ in `test/kvm/README.md`. Full reproduction runbook is `docs/RUNBOOK.md`.
 | 2026-04-12 | `bd0d360` | 4.21.9 | 3.6.0    | libvirt                    | 986 GiB (2×493)         | Two consecutive end-to-end passes exercising `install-portworx.sh` script hardening — OLM deployment-exists poll, placeholder regex scoped to `nodeName:`, `phase=Running` wait. Smoke test PASSED both runs. |
 | 2026-04-13 | `c12a305` | 4.21.9 | 3.6.0    | libvirt                    | 986 GiB (2×493)         | First end-to-end pass of the new `deploy/` layout: per-site `render.sh <site>` driven by `sites.csv` → `98-px1-prepare.sh` resolves `px-metadata` partlabel to per-node raw device via `oc debug` and generates `98-px4-storagecluster.yaml` from `.yaml.template` → `oc apply 98-px2/px3`, patch InstallPlan approved (Manual + `startingCSV: portworx-operator.v26.1.0` pin) → `oc apply 98-px4`. StorageCluster phase=Running, 3/3 StorageNodes Online, all PX pods Ready. No symlink-resolution symptom in `pxctl alerts`. |
 | 2026-04-14 | `cabd6f1` | 4.21.9 | 3.6.0    | libvirt                    | 986 GiB (2×493)         | Full re-validation (`test/kvm/logs/fullrun-20260414T091709.log`, ~60 min wall). Teardown → `generate-iso.sh` → `create-vms.sh` → install-complete → `render.sh austin` → 98-px2 → 98-px1-prepare → 98-px3 → InstallPlan approve → 98-px4. StorageCluster phase=Running, 3/3 StorageNodes Online (986 GiB), smoke test PVC bound on `px-csi-replicated`, sentinel write/read OK. **Doc issues found:** (a) RUNBOOK libvirt section references `./render.sh test-kvm` but `sites.csv` only has `austin`/`dallas` — `austin` row matches libvirt MACs, so the RUNBOOK should say `austin`. (b) `oc wait deploy/portworx-operator` races OLM reconcile: deployment doesn't exist yet when command fires, `oc wait` returns NotFound instead of waiting — needs a poll-until-present loop first, or `oc wait --for=create`. (c) `portworx-api` + `px-csi-ext` sidecars CrashLoopBackOff briefly (~2 min) during first PX init then self-heal — worth a RUNBOOK note so the next operator doesn't panic. |
+| 2026-04-14 | `fd983d3` | 4.21.9 | 3.6.0    | libvirt + **Secure Boot**  | 986 GiB (2×493)         | First SB-on validation (`test/kvm/logs/fullrun-sb-mok-20260414T124755.log`). All 3 VMs booted with `OVMF_CODE_4M.secboot.fd` + per-VM NVRAM pre-seeded by `host-setup/px-secboot-vars.sh` (Portworx CA in both UEFI `db` AND MOK via `virt-fw-vars --add-mok --add-db`). Per-node sanity: `mokutil --sb-state = enabled`, `mokutil --list-enrolled` has Portworx CA, `keyctl list %:.platform` has Portworx CA, `lsmod \| grep ^px = 1` (signed `px.ko` loaded). StorageCluster phase=Running in ~5 min, smoke test PVC bound + write/read OK. **Key finding:** `--add-db` alone is NOT enough — PX 3.6.0 px-runc pre-flight specifically checks the MOK list (`SecureBootCertNotEnrolled` alarm on db-only setup); must seed MOK too. Also validated the simplified StorageCluster that uses `useAll: true` + `systemMetadataDevice: /dev/disk/by-partlabel/px-metadata` directly (no per-node raw-path resolution); the symlink-resolution bug is confined to `useAllWithPartitions: true`. |
 
 ## Known-broken configs
 
 | Config | Fails how | Workaround |
 |---|---|---|
-| `systemMetadataDevice: /dev/disk/by-partlabel/px-metadata` (or ANY symlink) | PX 3.6.0 doesn't canonicalize the symlink before cross-referencing against discovery → the underlying device lands in both metadata + storage lists → `device … has a filesystem on it with labels any:pwxN` at init. Bug is symlink-resolution, not exclusion logic; reproduces for partlabel and for custom by-id udev symlinks alike (2026-04-13 run on PX 3.6.0, validated a by-id whole-disk + `useAll:true` repro too). | **Shipped fix:** raw-path `systemMetadataDevice`, resolved per node at install time. `deploy/templates/98-px1-prepare.sh` runs `oc debug node/<name>` on each node, reads `readlink -f /dev/disk/by-partlabel/px-metadata`, and `sed`-patches the adjacent `98-px4-storagecluster.yaml`'s `${MASTER1_META_DEV}` / `${MASTER2_META_DEV}` / `${ARBITER_META_DEV}` tokens with the concrete raw path (`/dev/vda5` on libvirt, `/dev/sda5` / `/dev/nvme0n1p5` on bare metal). No site-specific hand-editing; `deploy/` stays hardware-agnostic because the resolution happens at apply time. Tangential KVM lesson from the same run: virtio-blk truncates disk `serial=` to 20 chars, so any udev rule matching on a hostname-suffix needs virtio-scsi (SCSI VPD 0x80 accepts the full string; `scsi_id` populates `ID_SERIAL_SHORT` cleanly). |
+| `useAllWithPartitions: true` + any symlink `systemMetadataDevice` (partlabel, by-id, …) | PX 3.6.0 doesn't canonicalize the symlink before cross-referencing against the partition list it enumerates under `useAllWithPartitions`. The underlying partition lands in both metadata + storage lists → init fails with `device … has a filesystem on it with labels any:pwxN`. Reproduced with partlabel and with custom by-id udev symlinks. | Don't combine `useAllWithPartitions: true` with symlinks. The shipped config sticks to `useAll: true` (whole disks only) + partlabel `systemMetadataDevice`, which is safe because `useAll` never enumerates partitions — so the symlink target isn't double-counted. If you genuinely need `useAllWithPartitions`, resolve `systemMetadataDevice` to a raw path per-node (e.g. `/dev/vda5`, `/dev/sda5`, `/dev/nvme0n1p5`). Tangential KVM lesson from the repro run: virtio-blk truncates disk `serial=` to 20 chars, so any udev rule matching on a hostname-suffix needs virtio-scsi (SCSI VPD 0x80 accepts the full string; `scsi_id` populates `ID_SERIAL_SHORT` cleanly). |
 | `nodes[].selector.labelSelector` on TNA StorageCluster (instead of `nodeName`) | **Admission accepts it** (`oc apply --dry-run=server` passes, object stores fine), then the operator reconcile rejects at `storagecluster.go:3320`: `"Failed to create TNA NodeSpecs: NodeSpec for arbiter node <hostname> not found, please add it to the storage cluster spec"`. StorageCluster phase flips to `Degraded`. | TNA reconcile does an exact `nodeName` lookup per node — labelSelector matches aren't consulted. Ship exact `nodeName` on every entry; `deploy/render.sh` substitutes `${MASTER1_HOST}` / `${MASTER2_HOST}` / `${ARBITER_HOST}` from the site's row in `deploy/sites.csv`. Tested on PX 26.1.0 operator / 3.6.0 runtime, 2026-04-12. |
 
 ## License

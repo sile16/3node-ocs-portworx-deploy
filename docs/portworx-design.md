@@ -37,37 +37,35 @@ Arbiter has no p6 — it's storageless.
 ## Device-discovery decision
 
 The shipped config uses `useAll: true` (raw whole disks only) on each master,
-plus a raw-path `systemMetadataDevice` (e.g. `/dev/vda5`, `/dev/sda5`,
-`/dev/nvme0n1p5`) populated **per node** by
-`deploy/templates/98-px1-prepare.sh`. Trade-off: the on-disk
-px-data partition is **not** auto-consumed; add it post-install:
+plus the `/dev/disk/by-partlabel/px-metadata` symlink as `systemMetadataDevice`
+(and as `kvdbDevice` on the arbiter). This pairing is hardware-agnostic out
+of the box — the partition label is set by the same `98-machineconfig-*.yaml`
+regardless of boot-disk device name, so one StorageCluster YAML works across
+`vda5` / `sda5` / `nvme0n1p5` sites with no per-node substitution.
+
+Trade-off: the on-disk px-data partition is **not** auto-consumed at install
+time; add it post-install:
 
 ```sh
 pxctl service drive add -d /dev/disk/by-partlabel/px-data --newpool
 ```
 
-PX 3.6.0 has a symlink-resolution bug: `systemMetadataDevice` given as any
-symlink (`/dev/disk/by-partlabel/px-metadata`, custom by-id udev rules,
-etc.) fails to init because PX enumerates the underlying device twice (once
-via discovery, once via the metadata reservation) and collides. We work
-around it by shipping a raw-path value — but raw paths differ across
-hardware (`vda5` on libvirt, `sda5` / `nvme0n1p5` on bare metal), so
-`98-px1-prepare.sh` queries each node via `oc debug` at install
-time (`readlink -f /dev/disk/by-partlabel/px-metadata`) and `sed`-replaces
-the per-node `${MASTER1_META_DEV}` / `${MASTER2_META_DEV}` / `${ARBITER_META_DEV}`
-tokens in the adjacent `98-px4-storagecluster.yaml` before the operator
-sees it. No site-specific hand-editing; the CSV-templated `deploy/` stays
-hardware-agnostic.
-
-`useAllWithPartitions: true` would auto-consume px-data at install time
-(1.5 TiB out of the gate vs ~986 GiB). Not shipped because it exacerbates
-the same class of discovery collision if the metadata device is expressed
-as anything but a raw path — see README → Known-broken-configs.
+**Why not `useAllWithPartitions: true`?** It would auto-consume px-data at
+install (1.5 TiB out of the gate vs ~986 GiB), but PX 3.6.0 has a
+symlink-resolution bug specifically in that mode: the kernel enumerates
+every partition, and the partition referenced by the `systemMetadataDevice`
+symlink gets counted a second time via the reservation check. Init fails
+with `device … has a filesystem on it with labels any:pwxN`. Reproduced on
+2026-04-13 with both partlabel and custom by-id udev symlinks. `useAll: true`
+avoids the collision because partitions are never enumerated. If a future
+site needs `useAllWithPartitions`, switch `systemMetadataDevice` to a raw
+device path (resolved per-node) — see the header comment in
+`deploy/templates/98-px4-storagecluster.yaml`.
 
 ## Pre-reqs OCP doesn't provide (already handled)
 
 - px-metadata + px-data partitions — created by `deploy/templates/98-machineconfig-*.yaml`.
-- Stable `/dev/disk/by-partlabel/px-metadata` symlink — automatic from the partition `label:`. Referenced by `98-px1-prepare.sh` at install time; **not** referenced in the final `98-px4-` (see above).
+- Stable `/dev/disk/by-partlabel/px-metadata` symlink — automatic from the partition `label:`. Referenced directly by `98-px4-storagecluster.yaml` on every node; hardware-agnostic because partition label survives device renaming.
 - No `/var/lib/portworx` filesystem mount — MachineConfigs intentionally omit `filesystems:` and `systemd:` blocks.
 - SCCs + privileged-pod RBAC — Portworx operator creates its own SCC.
 - Kernel modules (`dm_thin_pool`, `dmsetup`) — built into RHCOS 9.6.
