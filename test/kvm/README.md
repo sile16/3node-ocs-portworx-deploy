@@ -59,7 +59,7 @@ node, so tuning resources or adding a host is a config-file edit.
 - **`virt-install --cdrom` blocks forever.** `create-vms.sh` backgrounds it and kills the wrapper after `virsh domstate=running`.
 - **Agent installer issues `poweroff` post-write-to-disk.** libvirt's default `on_poweroff=destroy` would orphan the install. Run `host-setup/autostart-watcher.sh start` BEFORE `create-vms.sh` — it polls `domstate` and restarts shut-off VMs within ~2 s. `create-vms.sh` launches it automatically.
 - **`agent-config.yaml` `rootDeviceHints.deviceName` must match the actual guest device.** Mismatch causes a silent "ready but never installing" stall.
-- **`bus='nvme'` is rejected by libvirt's domain XML schema.** Masters use `virtio-blk` (`/dev/vda`), arbiter uses `virtio-scsi` (`/dev/sda`). The `coreos-boot-disk` symlink in `deploy/templates/98-{0,1}-machineconfig-*` makes the MachineConfigs bus-agnostic.
+- **`bus='nvme'` is rejected by libvirt's domain XML schema.** Masters use `virtio-blk` (`/dev/vda`), arbiter uses `virtio-scsi` (`/dev/sda`). The `coreos-boot-disk` symlink in `deploy/templates/98-machineconfig-*` makes the MachineConfigs bus-agnostic.
 - **Secure Boot off in firmware.** `create-vms.sh` uses the non-SB OVMF firmware variant — required for Portworx `px.ko`.
 - **`virt-install`'s disk-size check sums VIRTUAL sizes.** `create-vms.sh` passes `--check disk_size=off,path_in_use=off`.
 

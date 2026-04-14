@@ -49,7 +49,7 @@ fi
 section "Portworx StorageCluster"
 phase=$(oc -n portworx get storagecluster px-cluster -o jsonpath='{.status.phase}' 2>/dev/null || true)
 case "${phase:-}" in
-  "")           warn "StorageCluster 'px-cluster' not found (apply 98-6-* yet?)" ;;
+  "")           warn "StorageCluster 'px-cluster' not found (apply 98-px4-* yet?)" ;;
   Running)      ok   "phase: Running" ;;
   Initializing) warn "phase: Initializing (in progress)" ;;
   Failed)       fail "phase: Failed" ;;

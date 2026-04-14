@@ -24,7 +24,7 @@ in `test/kvm/machineconfigs/`, scripts at the top level of `test/kvm/`.
 - `device:` in MachineConfigs uses `/dev/disk/by-id/coreos-boot-disk` — hardware-agnostic symlink (RHCOS 4.11+).
 - **Secure Boot must be OFF** on every node — Portworx `px.ko` is unsigned, blocks otherwise.
 - StorageCluster TNA: `selector.nodeName` (not labelSelector) on every node, `systemMetadataDevice` on every master.
-- PX `systemMetadataDevice` / `kvdbDevice` values must be **raw device paths** (`/dev/vda5`, `/dev/sda5`, …) — PX 3.6.0 has a symlink-resolution bug that breaks partlabel/by-id symlinks. `deploy/templates/98-4-prepare-for-portworx.sh` resolves those per node via `oc debug` and patches `98-6-` in place. Partlabel is still correct for the MC partition definitions and for any non-PX consumer.
+- PX `systemMetadataDevice` / `kvdbDevice` values must be **raw device paths** (`/dev/vda5`, `/dev/sda5`, …) — PX 3.6.0 has a symlink-resolution bug that breaks partlabel/by-id symlinks. `deploy/templates/98-px1-prepare.sh` resolves those per node via `oc debug` and patches `98-px4-` in place. Partlabel is still correct for the MC partition definitions and for any non-PX consumer.
 
 ## Memory
 

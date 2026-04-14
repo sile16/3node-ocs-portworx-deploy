@@ -1,4 +1,4 @@
-@@ DO NOT `oc apply` this file — run 98-4-prepare-for-portworx.sh first, which generates 98-6-portworx-storagecluster.yaml. This marker is intentional invalid YAML (reserved indicator `@` at column 0) so a direct apply errors out instead of silently installing a broken StorageCluster.
+@@ DO NOT `oc apply` this file — run 98-px1-prepare.sh first, which generates 98-px4-storagecluster.yaml. This marker is intentional invalid YAML (reserved indicator `@` at column 0) so a direct apply errors out instead of silently installing a broken StorageCluster.
 # Portworx StorageCluster — 2+1 arbiter (TNA), PX-StoreV2, RF=2.
 # ${MASTER1_HOST} / ${MASTER2_HOST} / ${ARBITER_HOST} are filled per-site by
 
@@ -51,7 +51,7 @@ spec:
   # partition at install time, switch to `useAllWithPartitions` + a raw-path
   # systemMetadataDevice (e.g. /dev/vda5) — see docs/portworx-design.md.
   # Otherwise add px-data post-install: pxctl service drive add -d /dev/disk/by-partlabel/px-data --newpool
-  # Per-node metadata device tokens — 98-4-prepare-for-portworx.sh substitutes
+  # Per-node metadata device tokens — 98-px1-prepare.sh substitutes
   # each with the raw device path resolved live from the node (e.g.
   # /dev/vda5 on libvirt, /dev/sda5 or /dev/nvme0n1p5 on bare metal).
   # Distinct tokens per stanza keep the prepare script's replace logic

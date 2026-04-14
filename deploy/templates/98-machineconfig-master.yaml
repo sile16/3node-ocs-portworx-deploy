@@ -4,7 +4,7 @@ kind: MachineConfig
 metadata:
   labels:
     machineconfiguration.openshift.io/role: master
-  name: 98-0-machineconfig-master
+  name: 98-machineconfig-master
 spec:
   config:
     ignition:
