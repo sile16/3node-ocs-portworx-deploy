@@ -55,11 +55,11 @@ do
 done
 
 # ── generate 06-…yaml from 06-…yaml.in ───────────────────────────────────
-# 06-*.yaml.template has one unique token per stanza (${MASTER1_META_DEV},
+# portworx-storagecluster.yaml.template has one unique token per stanza (${MASTER1_META_DEV},
 # ${MASTER2_META_DEV}, ${ARBITER_META_DEV}); three plain sed replaces are
 # enough. The .in is untouched so rerunning this script always regenerates
 # .yaml cleanly from a known-good source.
-SRC="$HERE/06-portworx-storagecluster.yaml.template"
+SRC="$HERE/portworx-storagecluster.yaml.template"
 OUT="$HERE/06-portworx-storagecluster.yaml"
 [ -f "$SRC" ] || { echo "FATAL: $SRC not found" >&2; exit 1; }
 

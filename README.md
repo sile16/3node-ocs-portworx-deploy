@@ -32,7 +32,7 @@ deploy/
 │   ├── 03-configmap-clulster-monitoring.yaml   cluster-monitoring user-workload enable
 │   ├── 04-prepare-for-portworx.sh              label master/arbiter nodes for placement
 │   ├── 05-portworx-subscription.yaml           OLM install of portworx-certified
-│   ├── 06-portworx-storagecluster.yaml         TNA StorageCluster; nodeName fields templated
+│   ├── portworx-storagecluster.yaml.template   TNA StorageCluster source; nodeName + per-node metadata-device tokens. 04-prepare generates the applied 06-*.yaml from this.
 │   ├── 07-portworx-register.sh                 optional site-specific license / px-central registration
 │   ├── aicli_parameters.yml                    aicli input: VIPs, hosts, MACs, pull secret
 │   └── check_px_status.sh                      one-shot health snapshot (OCP + PX), flags known-bad symptoms
@@ -73,7 +73,7 @@ oc apply -f 06-portworx-storagecluster.yaml
 - [ ] Install disks ≥256 GB (170 GiB rootfs + 64 GiB px-metadata + margin).
 - [ ] `pull_secret:` path in `deploy/templates/aicli_parameters.yml` points at a valid pull secret from [console.redhat.com](https://console.redhat.com/openshift/install/pull-secret).
 - [ ] `api_vip` and `ingress_vip` columns in `deploy/sites.csv` are free, routable IPs on the site's machine network.
-- [ ] Hostnames and MACs are set only in `deploy/sites.csv`; those same values land in both `aicli_parameters.yml` (via the agent installer) and `06-portworx-storagecluster.yaml` (`nodeName` fields), rendered together by `render.sh`.
+- [ ] Hostnames and MACs are set only in `deploy/sites.csv`; those same values land in both `aicli_parameters.yml` (via the agent installer) and `portworx-storagecluster.yaml.template` (`nodeName` fields) at render time. 04-prepare-for-portworx.sh then resolves per-node metadata-device tokens in that template and writes the final `06-portworx-storagecluster.yaml`.
 - [ ] Network between nodes allows Portworx ports (TCP 17001-17022, UDP 17002 — `startPort: 17001` in `04-`).
 
 ## Hardware assumptions
