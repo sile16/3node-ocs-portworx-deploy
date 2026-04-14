@@ -27,14 +27,15 @@ done
 
 echo "=== reverting to '$NAME' ==="
 for vm in "${VMS[@]}"; do
-  for disk in "$POOL_DIR/${vm}"*.qcow2; do
-    [ -f "$disk" ] || continue
+  mapfile -t disks < <(sudo sh -c "ls '$POOL_DIR'/'${vm}'*.qcow2 2>/dev/null")
+  for disk in "${disks[@]}"; do
+    [ -n "$disk" ] || continue
     echo "  qemu-img snapshot -a $NAME $(basename "$disk")"
     sudo qemu-img snapshot -a "$NAME" "$disk"
   done
   snap_nvram="$NVRAM_DIR/${vm}_VARS.snap-${NAME}.fd"
   live_nvram="$NVRAM_DIR/${vm}_VARS.fd"
-  if [ -f "$snap_nvram" ]; then
+  if sudo test -f "$snap_nvram"; then
     sudo cp -a "$snap_nvram" "$live_nvram"
     sudo chown libvirt-qemu:kvm "$live_nvram"
     sudo chmod 600 "$live_nvram"

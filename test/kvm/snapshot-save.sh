@@ -36,13 +36,15 @@ done
 
 echo "=== snapshotting to '$NAME' ==="
 for vm in "${VMS[@]}"; do
-  for disk in "$POOL_DIR/${vm}"*.qcow2; do
-    [ -f "$disk" ] || continue
+  # /var/lib/libvirt/images is typically 0711 — user can't glob without sudo.
+  mapfile -t disks < <(sudo sh -c "ls '$POOL_DIR'/'${vm}'*.qcow2 2>/dev/null")
+  for disk in "${disks[@]}"; do
+    [ -n "$disk" ] || continue
     echo "  qemu-img snapshot -c $NAME $(basename "$disk")"
     sudo qemu-img snapshot -c "$NAME" "$disk"
   done
   nvram="$NVRAM_DIR/${vm}_VARS.fd"
-  if [ -f "$nvram" ]; then
+  if sudo test -f "$nvram"; then
     sudo cp -a "$nvram" "${nvram%.fd}.snap-${NAME}.fd"
     echo "  nvram backup: ${vm}_VARS.snap-${NAME}.fd"
   fi
