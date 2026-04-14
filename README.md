@@ -155,6 +155,7 @@ in `test/kvm/README.md`. Full reproduction runbook is `docs/RUNBOOK.md`.
 | 2026-04-12 | `434eae3` | 4.21.9 | 3.6.0    | libvirt                    | 986 GiB (2×493) + drive-add to 1.5 TiB | px-central-aligned spec; live `pxctl service drive add` |
 | 2026-04-12 | `c580828` | 4.21.9 | 3.6.0    | libvirt                    | **1.5 TiB at install**  | Retest #9: `useAllWithPartitions` + raw-path systemMetadataDevice. Workaround proven; not shipped (hardware-specific) |
 | 2026-04-12 | `bd0d360` | 4.21.9 | 3.6.0    | libvirt                    | 986 GiB (2×493)         | Two consecutive end-to-end passes exercising `install-portworx.sh` script hardening — OLM deployment-exists poll, placeholder regex scoped to `nodeName:`, `phase=Running` wait. Smoke test PASSED both runs. |
+| 2026-04-13 | `c12a305` | 4.21.9 | 3.6.0    | libvirt                    | 986 GiB (2×493)         | First end-to-end pass of the new `deploy/` layout: per-site `render.sh <site>` driven by `sites.csv` → `98-px1-prepare.sh` resolves `px-metadata` partlabel to per-node raw device via `oc debug` and generates `98-px4-storagecluster.yaml` from `.yaml.template` → `oc apply 98-px2/px3`, patch InstallPlan approved (Manual + `startingCSV: portworx-operator.v26.1.0` pin) → `oc apply 98-px4`. StorageCluster phase=Running, 3/3 StorageNodes Online, all PX pods Ready. No symlink-resolution symptom in `pxctl alerts`. |
 
 ## Known-broken configs
 
