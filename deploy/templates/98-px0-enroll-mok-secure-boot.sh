@@ -3,21 +3,17 @@
 # print reboot instructions for the operator.
 #
 # Run this BEFORE 98-px1-prepare.sh on sites where firmware Secure Boot is
-# ON. The cert itself is already on-disk (dropped by the 98-machineconfig-*
-# MachineConfigs at install time, at /etc/pki/mok/portworx-public.der). All
-# this script does is `mokutil --import` with a well-known temporary password,
-# which queues the import for MokManager to pick up on the NEXT reboot.
+# ON. The script downloads the PX CA directly on each node (nodes have
+# outbound internet by assumption) and runs `mokutil --import` with a
+# well-known temporary password, queuing enrollment for MokManager.
 #
 # The operator then reboots each node (IPMI/iDRAC/iLO/physical console) and
 # answers the MokManager prompt within ~10 s of firmware handoff:
 #   Press key → Enroll MOK → View key → Continue → Yes → enter password
 #
-# Temporary password is printed below. It is a one-shot secret; MokManager
-# wipes the import request after successful enrollment.
-#
 # Skip this script on sites where Secure Boot is disabled in BIOS — PX
-# loads without MOK enrollment in that case (but see docs/portworx-design.md
-# for the security-vs-ops tradeoff).
+# loads without MOK enrollment in that case. See docs/portworx-design.md
+# for the full story.
 #
 # Usage:
 #   export KUBECONFIG=/path/to/kubeconfig
@@ -26,8 +22,28 @@
 
 set -euo pipefail
 
-MOK_PASS="${MOK_PASS:-portworx}"   # temporary MokManager password
-CERT_PATH="/etc/pki/mok/portworx-public.der"
+# ── cert pin ──────────────────────────────────────────────────────────────
+# Bump when Portworx rotates their signing CA (typically annual — URL path
+# carries the year). Pair the bump with a startingCSV bump in
+# 98-px3-subscription.yaml; verify the new fingerprint against PX release
+# notes out-of-band before committing.
+CERT_URL="https://mirrors.portworx.com/build-results/pxfuse/certs/v2025/portworx-public.der"
+CERT_YEAR=2025
+CERT_SHA256="8be7b22b17e50a34bf7dd4e6a087b4ceccd4f4dbde4ed4c06c8cd01f1b782de8"
+MOK_PASS="${MOK_PASS:-portworx}"
+
+# Soft warning if calendar year has lapped the pinned cert year.
+NOW_YEAR="$(date +%Y)"
+if [ "$NOW_YEAR" -gt "$CERT_YEAR" ]; then
+  cat >&2 <<EOF
+WARN: pinned cert is v${CERT_YEAR}, system year is ${NOW_YEAR}.
+      Portworx may have rotated the CA. Check:
+        https://docs.portworx.com/portworx-enterprise/platform/secure/secure-boot
+      If rotated, bump CERT_URL + CERT_YEAR + CERT_SHA256 in this script
+      (and verify the new fingerprint against PX release notes out-of-band).
+
+EOF
+fi
 
 command -v oc >/dev/null || { echo "FATAL: oc not in PATH" >&2; exit 1; }
 [ -n "${KUBECONFIG:-}" ] || { echo "FATAL: export KUBECONFIG first" >&2; exit 1; }
@@ -54,19 +70,26 @@ if [ "${1:-}" = "--verify" ]; then
   exit $?
 fi
 
-# Default path: stage the import on each node.
+# Default path: fetch + stage the import on each node.
 echo "=== staging MOK import on each node ==="
-echo "    cert   : $CERT_PATH (dropped by 98-machineconfig-*)"
-echo "    passwd : $MOK_PASS   (you'll type this at MokManager on first reboot)"
+echo "    cert url : $CERT_URL"
+echo "    sha256   : $CERT_SHA256"
+echo "    passwd   : $MOK_PASS   (you'll type this at MokManager on first reboot)"
 echo
 
 for n in $NODES; do
   echo "--- $n ---"
-  # `mokutil --import` prompts for password twice. Feed it via stdin.
   oc debug --quiet "node/$n" -- chroot /host bash -c "
     set -e
-    [ -f $CERT_PATH ] || { echo 'FATAL: $CERT_PATH not found — 98-machineconfig-* applied?' >&2; exit 1; }
-    printf '%s\n%s\n' '$MOK_PASS' '$MOK_PASS' | mokutil --import $CERT_PATH
+    tmp=\$(mktemp --suffix=-pxca.der)
+    trap 'rm -f \"\$tmp\"' EXIT
+    curl -fsSL -o \"\$tmp\" '$CERT_URL'
+    got=\$(sha256sum \"\$tmp\" | awk '{print \$1}')
+    if [ \"\$got\" != '$CERT_SHA256' ]; then
+      echo \"FATAL: cert sha256 mismatch — got \$got, expected $CERT_SHA256\" >&2
+      exit 1
+    fi
+    printf '%s\n%s\n' '$MOK_PASS' '$MOK_PASS' | mokutil --import \"\$tmp\"
     mokutil --list-new | head -20
   "
 done

@@ -84,16 +84,19 @@ Acceptable for labs; most physical-hardware policies require SB on.
 kernel before `px.ko` can load. Two paths, depending on environment:
 
 - **Bare-metal — MOK enrollment (one-time per node, at first boot):**
-  `deploy/templates/98-machineconfig-{master,arbiter}.yaml` drops the PX cert
-  at `/etc/pki/mok/portworx-public.der` via Ignition at install time. Before
-  PX bring-up, run `./98-px0-enroll-mok.sh` — it calls `mokutil --import` on
-  every node with a well-known password. The operator then reboots each node
-  (IPMI / iDRAC / iLO / physical console) and completes enrollment via
+  `./98-px0-enroll-mok-secure-boot.sh` downloads the PX CA on each node (via `oc debug`
+  + `curl`), verifies its sha256 against the pin at the top of the script,
+  and calls `mokutil --import` with a well-known password. Nodes are
+  assumed to have outbound internet at deploy time (same assumption as the
+  operator pulling images from `quay.io`). The operator then reboots each
+  node (IPMI / iDRAC / iLO / physical console) and completes enrollment via
   MokManager at the next firmware handoff (~10 s prompt, one password entry).
-  After reboot, `./98-px0-enroll-mok.sh --verify` confirms enrollment. This is
-  the only step in the bare-metal flow that requires physical/console touch;
-  USB-ISO install already requires one such touch per node, so the cost fits
-  the existing rollout envelope.
+  After reboot, `./98-px0-enroll-mok-secure-boot.sh --verify` confirms enrollment. Cert
+  URL + sha256 + year are pinned at the top of the script; bump them in the
+  same PR as any `startingCSV` bump if PX rotates their CA. This is the
+  only step in the bare-metal flow that requires physical/console touch;
+  USB-ISO install already requires one such touch per node, so the cost
+  fits the existing rollout envelope.
 
 - **KVM regression — UEFI `db` pre-seeded at VM-define time:**
   `test/kvm/host-setup/px-secboot-vars.sh` builds a per-VM `OVMF_VARS.fd`

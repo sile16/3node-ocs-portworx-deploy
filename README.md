@@ -56,9 +56,9 @@ aicli create deployment --paramfile aicli_parameters.yml prod-aus
 # 2. (SB-enabled sites only) MOK-enroll the Portworx signing cert on each node.
 #    Skip if Secure Boot is disabled in BIOS.
 export KUBECONFIG=/path/to/kubeconfig
-./98-px0-enroll-mok.sh                    # stages mokutil --import + prints reboot checklist
+./98-px0-enroll-mok-secure-boot.sh                    # stages mokutil --import + prints reboot checklist
 # reboot each node via IPMI/iDRAC/iLO; answer MokManager (~10 s prompt) with the printed password
-./98-px0-enroll-mok.sh --verify           # confirms Portworx CA is in each node's enrolled MOKs
+./98-px0-enroll-mok-secure-boot.sh --verify           # confirms Portworx CA is in each node's enrolled MOKs
 
 # 3. Portworx bring-up — run the numbered steps in order.
 ./98-px1-prepare.sh                       # labels nodes + generates 98-px4-storagecluster.yaml from .yaml.template
@@ -75,7 +75,7 @@ oc apply -f 98-px4-storagecluster.yaml
 
 ## Pre-install checklist
 
-- [ ] **Secure Boot:** either disabled in BIOS, OR enabled + plan for one-time MOK enrollment on first boot (run `./98-px0-enroll-mok.sh`, reboot each node, answer MokManager prompt). PX 3.6.0 `px.ko` is signed by the "Portworx Secure Boot CA @2025"; `deploy/templates/98-machineconfig-*` drops the cert at `/etc/pki/mok/` so `mokutil --import` can stage it. See `docs/portworx-design.md` → "Secure Boot".
+- [ ] **Secure Boot:** either disabled in BIOS, OR enabled + plan for one-time MOK enrollment on first boot (run `./98-px0-enroll-mok-secure-boot.sh`, reboot each node, answer MokManager prompt). PX 3.6.0 `px.ko` is signed by the "Portworx Secure Boot CA @2025"; the enroll script downloads the CA on each node (pinned URL + sha256 at the top of the script) and stages `mokutil --import`. Nodes need outbound internet at enrollment time. See `docs/portworx-design.md` → "Secure Boot".
 - [ ] Install disks ≥256 GB (170 GiB rootfs + 64 GiB px-metadata + margin).
 - [ ] `pull_secret:` path in `deploy/templates/aicli_parameters.yml` points at a valid pull secret from [console.redhat.com](https://console.redhat.com/openshift/install/pull-secret).
 - [ ] `api_vip` and `ingress_vip` columns in `deploy/sites.csv` are free, routable IPs on the site's machine network.
