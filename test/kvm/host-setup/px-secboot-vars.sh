@@ -34,14 +34,34 @@ mkdir -p "$(dirname "$OUT")"
 # grouping all PX-signed entries under a stable identifier.
 PX_GUID="50555258-0000-0000-0000-000050585856"   # "PURX\0\0\0\0\0\0PXXV" — mnemonic
 
-virt-fw-vars \
-  --input  "$BASE" \
-  --output "$OUT" \
-  --add-db  "$PX_GUID" "$CERT" \
-  --add-mok "$PX_GUID" "$CERT" \
-  --secure-boot
+# SEED_PX_CERT env var toggle:
+#   yes (default)  — seed PX CA in both UEFI db + MOK (kernel loads px.ko AND
+#                    px-runc pre-flight `mokutil --list-enrolled` succeeds).
+#                    This is the standard regression path.
+#   no             — MS baseline only; Secure Boot still ON but no PX trust.
+#                    Simulates a real physical node straight out of install.
+#                    px-runc will emit `SecureBootCertNotEnrolled` and refuse
+#                    to start px.ko. Useful for reproducing the bare-metal
+#                    first-boot failure in KVM.
+SEED_PX_CERT="${SEED_PX_CERT:-yes}"
 
-# Two writes on purpose: UEFI db enrolls for the kernel's .platform keyring
-# (module load check); MOK enrolls for shim/userspace tools (`mokutil --list-
-# enrolled`) that PX 3.6.0's px-runc pre-flight queries at startup. Dropping
-# either makes px-cluster stay Initializing with SecureBootCertNotEnrolled.
+case "$SEED_PX_CERT" in
+  yes|1|true)
+    virt-fw-vars \
+      --input  "$BASE" \
+      --output "$OUT" \
+      --add-db  "$PX_GUID" "$CERT" \
+      --add-mok "$PX_GUID" "$CERT" \
+      --secure-boot
+    ;;
+  no|0|false)
+    virt-fw-vars \
+      --input  "$BASE" \
+      --output "$OUT" \
+      --secure-boot
+    ;;
+  *)
+    echo "FATAL: SEED_PX_CERT must be yes/no (got: $SEED_PX_CERT)" >&2
+    exit 2
+    ;;
+esac

@@ -124,9 +124,12 @@ SEED_SCRIPT="${HERE}/host-setup/px-secboot-vars.sh"
 seed_nvram_for() {
   local name="$1"
   local out="${NVRAM_DIR}/${name}_VARS.fd"
-  # Always re-seed so the VM boots with a clean, PX-enrolled varstore.
+  # Always re-seed so the VM boots with a clean varstore.
+  # SEED_PX_CERT (default "yes") controls whether the PX CA is enrolled
+  # into db + MOK — set to "no" to boot with SB on but no Portworx trust
+  # (real-hardware-like initial state).
   sudo mkdir -p "$NVRAM_DIR"
-  sudo "$SEED_SCRIPT" "$out" >/dev/null
+  sudo --preserve-env=SEED_PX_CERT "$SEED_SCRIPT" "$out" >/dev/null
   sudo chown libvirt-qemu:kvm "$out"
   sudo chmod 600 "$out"
   echo "$out"
