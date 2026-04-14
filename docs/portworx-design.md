@@ -72,12 +72,41 @@ as anything but a raw path — see README → Known-broken-configs.
 - SCCs + privileged-pod RBAC — Portworx operator creates its own SCC.
 - Kernel modules (`dm_thin_pool`, `dmsetup`) — built into RHCOS 9.6.
 
-## Hard prerequisite: Secure Boot OFF
+## Secure Boot
 
-Portworx's `px.ko` kernel module is not signed with a key in RHCOS's shim
-keyring. With Secure Boot enabled, the kernel rejects the module and Portworx
-never starts. Disable Secure Boot in BIOS on every node (libvirt `create-vms.sh`
-already uses the non-SB OVMF firmware variant).
+PX 3.6.0+ ships a signed `px.ko` against the "Portworx Secure Boot CA @2025"
+key. Two supported modes:
+
+**SB disabled (simplest):** nothing to do. `px.ko` loads unconditionally.
+Acceptable for labs; most physical-hardware policies require SB on.
+
+**SB enabled (default for physical):** the PX CA cert must be trusted by the
+kernel before `px.ko` can load. Two paths, depending on environment:
+
+- **Bare-metal — MOK enrollment (one-time per node, at first boot):**
+  `deploy/templates/98-machineconfig-{master,arbiter}.yaml` drops the PX cert
+  at `/etc/pki/mok/portworx-public.der` via Ignition at install time. Before
+  PX bring-up, run `./98-px0-enroll-mok.sh` — it calls `mokutil --import` on
+  every node with a well-known password. The operator then reboots each node
+  (IPMI / iDRAC / iLO / physical console) and completes enrollment via
+  MokManager at the next firmware handoff (~10 s prompt, one password entry).
+  After reboot, `./98-px0-enroll-mok.sh --verify` confirms enrollment. This is
+  the only step in the bare-metal flow that requires physical/console touch;
+  USB-ISO install already requires one such touch per node, so the cost fits
+  the existing rollout envelope.
+
+- **KVM regression — UEFI `db` pre-seeded at VM-define time:**
+  `test/kvm/host-setup/px-secboot-vars.sh` builds a per-VM `OVMF_VARS.fd`
+  containing MS KEK + MS UEFI CA (baseline for shim) + the Portworx CA in db.
+  `test/kvm/create-vms.sh` uses the Secure-Boot OVMF code variant and points
+  each domain's `<nvram>` at its pre-seeded file. No MOK enrollment needed —
+  the cert is already in `db` at first firmware pass. This is what the KVM
+  regression exercises (tests the signed-module load path, but NOT MokManager
+  interaction — that's bare-metal only).
+
+If SB is on and the PX CA is not trusted, PX stays stuck at `Initializing`
+with `px-cluster` pods `0/1 Ready` forever; `dmesg` shows
+`Key was rejected by service`.
 
 ## References
 

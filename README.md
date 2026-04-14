@@ -53,8 +53,14 @@ aicli create cluster    --paramfile aicli_parameters.yml prod-aus
 aicli create deployment --paramfile aicli_parameters.yml prod-aus
 # wait ~30-60 min for install-complete
 
-# 2. Portworx bring-up — run the numbered steps in order.
+# 2. (SB-enabled sites only) MOK-enroll the Portworx signing cert on each node.
+#    Skip if Secure Boot is disabled in BIOS.
 export KUBECONFIG=/path/to/kubeconfig
+./98-px0-enroll-mok.sh                    # stages mokutil --import + prints reboot checklist
+# reboot each node via IPMI/iDRAC/iLO; answer MokManager (~10 s prompt) with the printed password
+./98-px0-enroll-mok.sh --verify           # confirms Portworx CA is in each node's enrolled MOKs
+
+# 3. Portworx bring-up — run the numbered steps in order.
 ./98-px1-prepare.sh                       # labels nodes + generates 98-px4-storagecluster.yaml from .yaml.template
 oc apply -f 98-px2-configmap-clulster-monitoring.yaml
 oc apply -f 98-px3-subscription.yaml
@@ -69,7 +75,7 @@ oc apply -f 98-px4-storagecluster.yaml
 
 ## Pre-install checklist
 
-- [ ] **Secure Boot disabled** in BIOS on all 3 nodes — Portworx `px.ko` is unsigned. See `docs/portworx-design.md`.
+- [ ] **Secure Boot:** either disabled in BIOS, OR enabled + plan for one-time MOK enrollment on first boot (run `./98-px0-enroll-mok.sh`, reboot each node, answer MokManager prompt). PX 3.6.0 `px.ko` is signed by the "Portworx Secure Boot CA @2025"; `deploy/templates/98-machineconfig-*` drops the cert at `/etc/pki/mok/` so `mokutil --import` can stage it. See `docs/portworx-design.md` → "Secure Boot".
 - [ ] Install disks ≥256 GB (170 GiB rootfs + 64 GiB px-metadata + margin).
 - [ ] `pull_secret:` path in `deploy/templates/aicli_parameters.yml` points at a valid pull secret from [console.redhat.com](https://console.redhat.com/openshift/install/pull-secret).
 - [ ] `api_vip` and `ingress_vip` columns in `deploy/sites.csv` are free, routable IPs on the site's machine network.
@@ -156,6 +162,7 @@ in `test/kvm/README.md`. Full reproduction runbook is `docs/RUNBOOK.md`.
 | 2026-04-12 | `c580828` | 4.21.9 | 3.6.0    | libvirt                    | **1.5 TiB at install**  | Retest #9: `useAllWithPartitions` + raw-path systemMetadataDevice. Workaround proven; not shipped (hardware-specific) |
 | 2026-04-12 | `bd0d360` | 4.21.9 | 3.6.0    | libvirt                    | 986 GiB (2×493)         | Two consecutive end-to-end passes exercising `install-portworx.sh` script hardening — OLM deployment-exists poll, placeholder regex scoped to `nodeName:`, `phase=Running` wait. Smoke test PASSED both runs. |
 | 2026-04-13 | `c12a305` | 4.21.9 | 3.6.0    | libvirt                    | 986 GiB (2×493)         | First end-to-end pass of the new `deploy/` layout: per-site `render.sh <site>` driven by `sites.csv` → `98-px1-prepare.sh` resolves `px-metadata` partlabel to per-node raw device via `oc debug` and generates `98-px4-storagecluster.yaml` from `.yaml.template` → `oc apply 98-px2/px3`, patch InstallPlan approved (Manual + `startingCSV: portworx-operator.v26.1.0` pin) → `oc apply 98-px4`. StorageCluster phase=Running, 3/3 StorageNodes Online, all PX pods Ready. No symlink-resolution symptom in `pxctl alerts`. |
+| 2026-04-14 | `cabd6f1` | 4.21.9 | 3.6.0    | libvirt                    | 986 GiB (2×493)         | Full re-validation (`test/kvm/logs/fullrun-20260414T091709.log`, ~60 min wall). Teardown → `generate-iso.sh` → `create-vms.sh` → install-complete → `render.sh austin` → 98-px2 → 98-px1-prepare → 98-px3 → InstallPlan approve → 98-px4. StorageCluster phase=Running, 3/3 StorageNodes Online (986 GiB), smoke test PVC bound on `px-csi-replicated`, sentinel write/read OK. **Doc issues found:** (a) RUNBOOK libvirt section references `./render.sh test-kvm` but `sites.csv` only has `austin`/`dallas` — `austin` row matches libvirt MACs, so the RUNBOOK should say `austin`. (b) `oc wait deploy/portworx-operator` races OLM reconcile: deployment doesn't exist yet when command fires, `oc wait` returns NotFound instead of waiting — needs a poll-until-present loop first, or `oc wait --for=create`. (c) `portworx-api` + `px-csi-ext` sidecars CrashLoopBackOff briefly (~2 min) during first PX init then self-heal — worth a RUNBOOK note so the next operator doesn't panic. |
 
 ## Known-broken configs
 

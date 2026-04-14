@@ -114,7 +114,7 @@ After the Portworx bring-up (98-px1 → 98-px2 → 98-px3 → 98-px4) + smoke te
 - Agent installer issues `poweroff` (not reboot) post-write-to-disk; libvirt's default `on_poweroff=destroy` would orphan the install. `autostart-watcher.sh` restarts the domain within ~2 s.
 - `agent-config.yaml` `rootDeviceHints.deviceName` must match the actual guest device — change one, change both.
 - First install populates the registry cache; the speedup shows on the second install onward.
-- Secure Boot off in the libvirt firmware (`create-vms.sh` uses `OVMF_CODE_4M.fd`, non-SB variant) — Portworx's `px.ko` is unsigned.
+- **Secure Boot ON** in the libvirt firmware (`create-vms.sh` uses `OVMF_CODE_4M.secboot.fd` + per-VM NVRAM pre-seeded by `host-setup/px-secboot-vars.sh` with the Portworx CA in UEFI `db`). PX 3.6.0 `px.ko` is signed; the pre-seeded cert avoids the interactive MokManager step that the bare-metal flow needs. Requires `python3-virt-firmware` (`virt-fw-vars`) on the host.
 
 ## Full purge
 

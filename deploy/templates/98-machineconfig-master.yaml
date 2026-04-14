@@ -1,4 +1,6 @@
 # Master px-metadata (p5, 64 GiB) + px-data (p6, rest of disk). Raw, no filesystem.
+# Also drops the Portworx Secure Boot CA cert at /etc/pki/mok/ so 98-px0-enroll-mok.sh
+# can `mokutil --import` it on first boot (SB-enabled bare-metal path).
 apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfig
 metadata:
@@ -21,3 +23,9 @@ spec:
               number: 6
               startMiB: 239616   # 170 + 64 GiB
               sizeMiB: 0         # rest of disk
+      files:
+        - path: /etc/pki/mok/portworx-public.der
+          mode: 0644
+          overwrite: true
+          contents:
+            source: data:;base64,MIIEazCCA1OgAwIBAgIUfmBECnz9EJ5YT7BmFJsyKJ+3gH8wDQYJKoZIhvcNAQELBQAwgcQxCzAJBgNVBAYTAlVTMRMwEQYDVQQIDApDYWxpZm9ybmlhMRQwEgYDVQQHDAtTYW50YSBDbGFyYTEbMBkGA1UECgwSUHVyZSBTdG9yYWdlLCBJbmMuMR0wGwYDVQQLDBRQb3J0d29yeCBFbmdpbmVlcmluZzEmMCQGA1UEAwwdUG9ydHdvcnggU2VjdXJlIEJvb3QgQ0EgQDIwMjUxJjAkBgkqhkiG9w0BCQEWF3N1cHBvcnRAcHVyZXN0b3JhZ2UuY29tMB4XDTI1MTExODAwNDUwMloXDTM1MTExNjAwNDUwMlowgcQxCzAJBgNVBAYTAlVTMRMwEQYDVQQIDApDYWxpZm9ybmlhMRQwEgYDVQQHDAtTYW50YSBDbGFyYTEbMBkGA1UECgwSUHVyZSBTdG9yYWdlLCBJbmMuMR0wGwYDVQQLDBRQb3J0d29yeCBFbmdpbmVlcmluZzEmMCQGA1UEAwwdUG9ydHdvcnggU2VjdXJlIEJvb3QgQ0EgQDIwMjUxJjAkBgkqhkiG9w0BCQEWF3N1cHBvcnRAcHVyZXN0b3JhZ2UuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApcAl5iWLZaNa4NaxyvFT8sskX0HlxjNtvT2uPkZryDsdlaEMFC7NlRF6NWQyrCswzlsrJIvitsajQGWOLVmtfJSngVdNBCDg0ngdxU9V6IbzOB5+v3VEGpk9azP8zwB199P68EE+z02eyGGYaWt5D9h0XipiVLc/hzEY/MyZwOnuSsL0EhQdpQWnoxyOKH8Ufq2SpjFAozDqDd9cuLFIyc/XnI13Q9CZ0h9kMtDfqEnxa3uWodHLrd4POjOj4Ki1TUukGrSEProa/M+ry+PlHxqF8bMgOKBlk+VCrrsP4mBRPUbNLKWD96wFPFtGcIrYJSURsWrvxZnQGoMuxxPf6QIDAQABo1MwUTAdBgNVHQ4EFgQUJVqTGWWOOAhzuGSxsiRg7RhnbPgwHwYDVR0jBBgwFoAUJVqTGWWOOAhzuGSxsiRg7RhnbPgwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAXNIovgraSacrWBd7GAATR8IpqTDylQjdW8MBvGgJbH13sT+2vOOToFNcww9eMSyt6oHTitoEuN6LLYPTf4DXSzcvy9/p+zP2yR0WIRI9ZLAJhpm8kDN/NZUE2dqoRBaECJ/YMC9K59a2QJvyMMsYggeqMOLIh0VJLrXvF0xmGqAaylww/Pd9SoyFEazMPRw30ZJpWuXXldK8DrJ9WXqdkNIoEYUMq3eKxEr1BEXCgLpFB6vFCYk6LFDEa/+h6qguqEynX1cs+J4j5e3nqKf/eTUHO++ckdXmGMVtQ4zShVezMEYayBjkD/zFZ0Kho46yPECcgHfi2/4yjZ40lruRGg==

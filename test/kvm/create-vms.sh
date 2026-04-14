@@ -111,8 +111,26 @@ fi
 # shutdown-on-complete). We background it, poll `virsh domstate` until
 # "running", then kill the wrapper. libvirtd keeps the domain alive.
 #
-# Firmware: non-Secure-Boot OVMF (.fd, not .ms.fd). Portworx px.ko is
-# unsigned — SB blocks the module load with "Key was rejected by service".
+# Firmware: Secure-Boot OVMF (OVMF_CODE_4M.secboot.fd) + per-VM NVRAM seeded
+# with the Portworx module-signing cert in db. PX 3.6.0+ ships a signed
+# px.ko; pre-enrolling the PX cert at VM-define time avoids the interactive
+# mokutil/MOK-manager step and lets SB be ON from first boot.
+# See host-setup/px-secboot-vars.sh and docs/portworx-design.md.
+
+NVRAM_DIR="/var/lib/libvirt/qemu/nvram"
+SEED_SCRIPT="${HERE}/host-setup/px-secboot-vars.sh"
+[ -x "$SEED_SCRIPT" ] || { echo "FATAL: $SEED_SCRIPT missing or not executable" >&2; exit 1; }
+
+seed_nvram_for() {
+  local name="$1"
+  local out="${NVRAM_DIR}/${name}_VARS.fd"
+  # Always re-seed so the VM boots with a clean, PX-enrolled varstore.
+  sudo mkdir -p "$NVRAM_DIR"
+  sudo "$SEED_SCRIPT" "$out" >/dev/null
+  sudo chown libvirt-qemu:kvm "$out"
+  sudo chmod 600 "$out"
+  echo "$out"
+}
 
 declare -a VI_NAMES
 
@@ -121,6 +139,9 @@ run_virt_install() {
   VI_NAMES+=("$name")
   echo "=== defining VM $name (ram=${ram}MiB vcpus=$vcpus mac=$mac) ==="
 
+  local nvram
+  nvram="$(seed_nvram_for "$name")"
+
   virt-install \
     --connect "$LIBVIRT_URI" \
     --name "$name" \
@@ -128,7 +149,7 @@ run_virt_install() {
     --vcpus "$vcpus" \
     --cpu host-passthrough \
     --os-variant fedora-coreos-stable \
-    --boot loader=/usr/share/OVMF/OVMF_CODE_4M.fd,loader.readonly=yes,loader.type=pflash,loader.secure=no,nvram.template=/usr/share/OVMF/OVMF_VARS_4M.fd,menu=on \
+    --boot loader=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd,loader.readonly=yes,loader.type=pflash,loader.secure=yes,nvram="${nvram}",menu=on \
     --network "network=${NET_NAME},mac=${mac},model=virtio" \
     --cdrom "$ISO" \
     --graphics vnc,listen=127.0.0.1 \
