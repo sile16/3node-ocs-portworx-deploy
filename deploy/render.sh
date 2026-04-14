@@ -5,7 +5,7 @@
 # CSV column names become UPPERCASE env vars. Templates reference them as
 # ${VAR}. Only columns defined in the CSV header are substituted — unrelated
 # shell variables (e.g. ${KUBECONFIG}, ${HERE}, bash array refs inside
-# 04-prepare-for-portworx.sh) pass through unchanged. No shell eval.
+# 98-4-prepare-for-portworx.sh) pass through unchanged. No shell eval.
 
 set -euo pipefail
 

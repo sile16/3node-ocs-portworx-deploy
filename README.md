@@ -27,13 +27,13 @@ deploy/
 ├── sites.csv                               one row per site: hostnames, MACs, VIPs, DNS
 ├── render.sh                               awk-based template render, sites.csv × templates/ → sites/<site>/
 ├── templates/                              canonical inputs; ${VAR} placeholders per sites.csv columns
-│   ├── 01-machineconfig-master.yaml            master px-metadata + px-data partitions (agent-installer manifest)
-│   ├── 02-machineconfig-arbiter.yaml           arbiter px-metadata partition            (agent-installer manifest)
-│   ├── 03-configmap-clulster-monitoring.yaml   cluster-monitoring user-workload enable
-│   ├── 04-prepare-for-portworx.sh              label master/arbiter nodes for placement
-│   ├── 05-portworx-subscription.yaml           OLM install of portworx-certified
-│   ├── portworx-storagecluster.yaml.template   TNA StorageCluster source; nodeName + per-node metadata-device tokens. 04-prepare generates the applied 06-*.yaml from this.
-│   ├── 07-portworx-register.sh                 optional site-specific license / px-central registration
+│   ├── 98-0-machineconfig-master.yaml          master px-metadata + px-data partitions (agent-installer manifest; 98- = customer MC layer, 0/1 = our ordinal)
+│   ├── 98-1-machineconfig-arbiter.yaml         arbiter px-metadata partition            (agent-installer manifest)
+│   ├── 98-3-configmap-clulster-monitoring.yaml   cluster-monitoring user-workload enable
+│   ├── 98-4-prepare-for-portworx.sh              label master/arbiter nodes for placement
+│   ├── 98-5-portworx-subscription.yaml           OLM install of portworx-certified
+│   ├── portworx-storagecluster.yaml.template   TNA StorageCluster source; nodeName + per-node metadata-device tokens. 98-4-prepare generates the applied 98-6-*.yaml from this.
+│   ├── 98-7-portworx-register.sh                 optional site-specific license / px-central registration
 │   ├── aicli_parameters.yml                    aicli input: VIPs, hosts, MACs, pull secret
 │   └── check_px_status.sh                      one-shot health snapshot (OCP + PX), flags known-bad symptoms
 └── sites/<site>/                           rendered, per-site, gitignored — what the site operator ships against
@@ -47,7 +47,7 @@ cd deploy
 ./render.sh austin                         # → deploy/sites/austin/*
 
 # 1. Cluster install via aicli (ISO burnt to USB, boot all 3 nodes).
-#    01-/02- MachineConfigs are packed into the agent installer ISO here.
+#    98-0-/98-1- MachineConfigs are packed into the agent installer ISO here.
 cd sites/austin
 aicli create cluster    --paramfile aicli_parameters.yml prod-aus
 aicli create deployment --paramfile aicli_parameters.yml prod-aus
@@ -55,15 +55,15 @@ aicli create deployment --paramfile aicli_parameters.yml prod-aus
 
 # 2. Portworx bring-up — run the numbered steps in order.
 export KUBECONFIG=/path/to/kubeconfig
-oc apply -f 03-configmap-clulster-monitoring.yaml
-./04-prepare-for-portworx.sh               # labels nodes + generates 06-*.yaml from .yaml.template
-oc apply -f 05-portworx-subscription.yaml
+oc apply -f 98-3-configmap-clulster-monitoring.yaml
+./98-4-prepare-for-portworx.sh               # labels nodes + generates 98-6-*.yaml from .yaml.template
+oc apply -f 98-5-portworx-subscription.yaml
 # installPlanApproval is Manual + pinned via startingCSV — approve before waiting.
 oc -n portworx patch "$(oc -n portworx get installplan -o name | head -1)" \
   --type merge -p '{"spec":{"approved":true}}'
 oc -n portworx wait --for=condition=Available deploy/portworx-operator --timeout=10m
-oc apply -f 06-portworx-storagecluster.yaml
-./07-portworx-register.sh                  # optional, site-specific license
+oc apply -f 98-6-portworx-storagecluster.yaml
+./98-7-portworx-register.sh                  # optional, site-specific license
 ./check_px_status.sh                       # sanity check at any point
 ```
 
@@ -73,8 +73,8 @@ oc apply -f 06-portworx-storagecluster.yaml
 - [ ] Install disks ≥256 GB (170 GiB rootfs + 64 GiB px-metadata + margin).
 - [ ] `pull_secret:` path in `deploy/templates/aicli_parameters.yml` points at a valid pull secret from [console.redhat.com](https://console.redhat.com/openshift/install/pull-secret).
 - [ ] `api_vip` and `ingress_vip` columns in `deploy/sites.csv` are free, routable IPs on the site's machine network.
-- [ ] Hostnames and MACs are set only in `deploy/sites.csv`; those same values land in both `aicli_parameters.yml` (via the agent installer) and `portworx-storagecluster.yaml.template` (`nodeName` fields) at render time. 04-prepare-for-portworx.sh then resolves per-node metadata-device tokens in that template and writes the final `06-portworx-storagecluster.yaml`.
-- [ ] Network between nodes allows Portworx ports (TCP 17001-17022, UDP 17002 — `startPort: 17001` in `04-`).
+- [ ] Hostnames and MACs are set only in `deploy/sites.csv`; those same values land in both `aicli_parameters.yml` (via the agent installer) and `portworx-storagecluster.yaml.template` (`nodeName` fields) at render time. 98-4-prepare-for-portworx.sh then resolves per-node metadata-device tokens in that template and writes the final `98-6-portworx-storagecluster.yaml`.
+- [ ] Network between nodes allows Portworx ports (TCP 17001-17022, UDP 17002 — `startPort: 17001` in `portworx-storagecluster.yaml.template`).
 
 ## Hardware assumptions
 
@@ -86,7 +86,7 @@ udev symlink — so they are hardware-agnostic across SSD/NVMe/SATA targets.
 The assisted installer picks the install disk itself (largest by default);
 if a site needs to constrain it, add a per-host `installation_disk_id:` to
 the `hosts:` entries in `templates/aicli_parameters.yml`. PX's own per-node
-metadata device is resolved at install time by `04-prepare-for-portworx.sh`
+metadata device is resolved at install time by `98-4-prepare-for-portworx.sh`
 (see README → Known-broken-configs for the why).
 
 ## Repo layout
@@ -135,11 +135,11 @@ cd test/kvm
 ./create-vms.sh                            # define + boot 3 VMs from vms/*.conf
 openshift-install agent wait-for install-complete --dir=./generated
 cd ../../deploy && ./render.sh <site> && cd sites/<site> && \
-  oc apply -f 03-configmap-clulster-monitoring.yaml && ./04-prepare-for-portworx.sh && \
-  oc apply -f 05-portworx-subscription.yaml && \
+  oc apply -f 98-3-configmap-clulster-monitoring.yaml && ./98-4-prepare-for-portworx.sh && \
+  oc apply -f 98-5-portworx-subscription.yaml && \
   oc -n portworx patch "$(oc -n portworx get installplan -o name | head -1)" --type merge -p '{"spec":{"approved":true}}' && \
   oc -n portworx wait --for=condition=Available deploy/portworx-operator --timeout=10m && \
-  oc apply -f 06-portworx-storagecluster.yaml
+  oc apply -f 98-6-portworx-storagecluster.yaml
 cd ../test/kvm && ./teardown.sh            # wipe VMs + volumes + generated/
 ```
 
@@ -159,7 +159,7 @@ in `test/kvm/README.md`. Full reproduction runbook is `docs/RUNBOOK.md`.
 
 | Config | Fails how | Workaround |
 |---|---|---|
-| `systemMetadataDevice: /dev/disk/by-partlabel/px-metadata` (or ANY symlink) | PX 3.6.0 doesn't canonicalize the symlink before cross-referencing against discovery → the underlying device lands in both metadata + storage lists → `device … has a filesystem on it with labels any:pwxN` at init. Bug is symlink-resolution, not exclusion logic; reproduces for partlabel and for custom by-id udev symlinks alike (2026-04-13 run on PX 3.6.0, validated a by-id whole-disk + `useAll:true` repro too). | **Shipped fix:** raw-path `systemMetadataDevice`, resolved per node at install time. `deploy/templates/04-prepare-for-portworx.sh` runs `oc debug node/<name>` on each node, reads `readlink -f /dev/disk/by-partlabel/px-metadata`, and `sed`-patches the adjacent `06-portworx-storagecluster.yaml`'s `${MASTER1_META_DEV}` / `${MASTER2_META_DEV}` / `${ARBITER_META_DEV}` tokens with the concrete raw path (`/dev/vda5` on libvirt, `/dev/sda5` / `/dev/nvme0n1p5` on bare metal). No site-specific hand-editing; `deploy/` stays hardware-agnostic because the resolution happens at apply time. Tangential KVM lesson from the same run: virtio-blk truncates disk `serial=` to 20 chars, so any udev rule matching on a hostname-suffix needs virtio-scsi (SCSI VPD 0x80 accepts the full string; `scsi_id` populates `ID_SERIAL_SHORT` cleanly). |
+| `systemMetadataDevice: /dev/disk/by-partlabel/px-metadata` (or ANY symlink) | PX 3.6.0 doesn't canonicalize the symlink before cross-referencing against discovery → the underlying device lands in both metadata + storage lists → `device … has a filesystem on it with labels any:pwxN` at init. Bug is symlink-resolution, not exclusion logic; reproduces for partlabel and for custom by-id udev symlinks alike (2026-04-13 run on PX 3.6.0, validated a by-id whole-disk + `useAll:true` repro too). | **Shipped fix:** raw-path `systemMetadataDevice`, resolved per node at install time. `deploy/templates/98-4-prepare-for-portworx.sh` runs `oc debug node/<name>` on each node, reads `readlink -f /dev/disk/by-partlabel/px-metadata`, and `sed`-patches the adjacent `98-6-portworx-storagecluster.yaml`'s `${MASTER1_META_DEV}` / `${MASTER2_META_DEV}` / `${ARBITER_META_DEV}` tokens with the concrete raw path (`/dev/vda5` on libvirt, `/dev/sda5` / `/dev/nvme0n1p5` on bare metal). No site-specific hand-editing; `deploy/` stays hardware-agnostic because the resolution happens at apply time. Tangential KVM lesson from the same run: virtio-blk truncates disk `serial=` to 20 chars, so any udev rule matching on a hostname-suffix needs virtio-scsi (SCSI VPD 0x80 accepts the full string; `scsi_id` populates `ID_SERIAL_SHORT` cleanly). |
 | `nodes[].selector.labelSelector` on TNA StorageCluster (instead of `nodeName`) | **Admission accepts it** (`oc apply --dry-run=server` passes, object stores fine), then the operator reconcile rejects at `storagecluster.go:3320`: `"Failed to create TNA NodeSpecs: NodeSpec for arbiter node <hostname> not found, please add it to the storage cluster spec"`. StorageCluster phase flips to `Degraded`. | TNA reconcile does an exact `nodeName` lookup per node — labelSelector matches aren't consulted. Ship exact `nodeName` on every entry; `deploy/render.sh` substitutes `${MASTER1_HOST}` / `${MASTER2_HOST}` / `${ARBITER_HOST}` from the site's row in `deploy/sites.csv`. Tested on PX 26.1.0 operator / 3.6.0 runtime, 2026-04-12. |
 
 ## License

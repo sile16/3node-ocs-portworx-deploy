@@ -20,15 +20,15 @@ aicli wait cluster <cluster_name>                            # blocks until inst
 export KUBECONFIG=$(aicli info cluster <cluster_name> -f kubeconfig)
 
 # Portworx bring-up, in numeric order:
-oc apply -f 03-configmap-clulster-monitoring.yaml
-./04-prepare-for-portworx.sh       # labels + resolves per-node raw metadata device, generates 06-*.yaml
-oc apply -f 05-portworx-subscription.yaml
+oc apply -f 98-3-configmap-clulster-monitoring.yaml
+./98-4-prepare-for-portworx.sh       # labels + resolves per-node raw metadata device, generates 98-6-*.yaml
+oc apply -f 98-5-portworx-subscription.yaml
 # InstallPlan is Manual + pinned via startingCSV; approve it before waiting.
 IP=$(oc -n portworx get installplan -o name | head -1)
 oc -n portworx patch "$IP" --type merge -p '{"spec":{"approved":true}}'
 oc -n portworx wait --for=condition=Available deployment/portworx-operator --timeout=10m
-oc apply -f 06-portworx-storagecluster.yaml
-./07-portworx-register.sh          # optional license activation
+oc apply -f 98-6-portworx-storagecluster.yaml
+./98-7-portworx-register.sh          # optional license activation
 ./check_px_status.sh               # health snapshot
 ```
 
@@ -71,13 +71,13 @@ oc get nodes                              # expect 3 Ready
 # Portworx — render the site dir, then run the numbered steps in order.
 (cd ../../deploy && ./render.sh test-kvm)
 cd ../../deploy/sites/test-kvm
-oc apply -f 03-configmap-clulster-monitoring.yaml
-./04-prepare-for-portworx.sh
-oc apply -f 05-portworx-subscription.yaml
+oc apply -f 98-3-configmap-clulster-monitoring.yaml
+./98-4-prepare-for-portworx.sh
+oc apply -f 98-5-portworx-subscription.yaml
 IP=$(oc -n portworx get installplan -o name | head -1)
 oc -n portworx patch "$IP" --type merge -p '{"spec":{"approved":true}}'
 oc -n portworx wait --for=condition=Available deployment/portworx-operator --timeout=10m
-oc apply -f 06-portworx-storagecluster.yaml
+oc apply -f 98-6-portworx-storagecluster.yaml
 ./check_px_status.sh
 cd -
 
@@ -99,11 +99,11 @@ cd -
 After `collect-cluster-state.sh`:
 - Every node: `/dev/disk/by-partlabel/px-metadata` present, ~64 GiB
 - Masters also: `/dev/disk/by-partlabel/px-data` present (rest of disk)
-- Rootfs grew to ~170 GiB (= `startMiB` in `deploy/templates/01-/02-machineconfig-*.yaml`)
+- Rootfs grew to ~170 GiB (= `startMiB` in `deploy/templates/98-{0,1}-machineconfig-*.yaml`)
 - `findmnt /var/lib/portworx` returns non-zero (NOT a separate mount)
 - `oc get mcp` shows master + arbiter pools both `UPDATED=True`
 
-After the Portworx bring-up (03 → 04 → 05 → 06) + smoke test:
+After the Portworx bring-up (98-3 → 98-4 → 98-5 → 98-6) + smoke test:
 - `pxctl status` reports `PX is operational`, all 3 nodes Online
 - `pxctl cluster list` shows storage on masters, "No Storage" on arbiter
 - Smoke test PVC binds + writes + reads against `px-csi-replicated`

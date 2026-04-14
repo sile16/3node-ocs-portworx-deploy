@@ -9,7 +9,7 @@
 # Inputs (committed in this directory):
 #   install-config.yaml.template    — has __PULL_SECRET__ / __SSH_PUBKEY__ placeholders
 #   agent-config.yaml               — hosts, MACs, rootDeviceHints, rendezvousIP
-#   ../../deploy/templates/0[12]-machineconfig-*.yaml  — MCs copied from the canonical deploy/templates/ dir
+#   ../../deploy/templates/98-{0,1}-machineconfig-*.yaml — MCs copied from the canonical deploy/templates/ dir
 #
 # Inputs (from outside the repo):
 #   ~/.local/pullsecret             — Red Hat pull secret JSON
@@ -93,8 +93,8 @@ mkdir -p "$GEN/openshift"
 # recognize as a manifest (any .yaml works).
 DEPLOY_TPL="${HERE}/../../deploy/templates"
 [ -d "$DEPLOY_TPL" ] || { echo "FATAL: deploy/templates not found at $DEPLOY_TPL" >&2; exit 1; }
-cp "${DEPLOY_TPL}/01-machineconfig-master.yaml"  "$GEN/openshift/98-px-storage-master.yaml"
-cp "${DEPLOY_TPL}/02-machineconfig-arbiter.yaml" "$GEN/openshift/98-px-storage-arbiter.yaml"
+cp "${DEPLOY_TPL}/98-0-machineconfig-master.yaml"  "$GEN/openshift/"
+cp "${DEPLOY_TPL}/98-1-machineconfig-arbiter.yaml" "$GEN/openshift/"
 
 # KVM-specific MachineConfigs from ./machineconfigs/.
 #

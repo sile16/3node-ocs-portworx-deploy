@@ -1,4 +1,3 @@
 site,cluster_name,base_dns_domain,api_vip,ingress_vip,master1_host,master1_mac,master2_host,master2_mac,arbiter_host,arbiter_mac
-austin,prod-aus,aus.example.local,10.10.1.10,10.10.1.11,aus-m1,aa:bb:cc:dd:ee:01,aus-m2,aa:bb:cc:dd:ee:02,aus-a1,aa:bb:cc:dd:ee:03
+austin,prod-aus,tna.example.local,192.168.125.10,192.168.125.11,master-1.example.local,52:54:00:12:34:01,master-2.example.local,52:54:00:12:34:02,arbiter-1.example.local,52:54:00:12:34:03
 dallas,prod-dal,dal.example.local,10.10.2.10,10.10.2.11,dal-m1,aa:bb:cc:dd:ee:11,dal-m2,aa:bb:cc:dd:ee:12,dal-a1,aa:bb:cc:dd:ee:13
-test-kvm,tna,tna.example.local,192.168.125.10,192.168.125.11,master-1.example.local,52:54:00:12:34:01,master-2.example.local,52:54:00:12:34:02,arbiter-1.example.local,52:54:00:12:34:03

@@ -1,7 +1,7 @@
 # Portworx design notes
 
 Background and rationale for the StorageCluster shape in
-`deploy/templates/06-portworx-storagecluster.yaml`. Behavior lives in the
+`deploy/templates/98-6-portworx-storagecluster.yaml`. Behavior lives in the
 manifest; this doc explains *why*.
 
 ## Topology
@@ -18,11 +18,11 @@ re-verify at apply time).
 
 Trial (30 days) auto-activates on first StorageCluster bring-up. No key, no
 registration. To register with Pure1 / px-central or activate a paid license,
-replace the stub in `deploy/templates/07-portworx-register.sh`; the rendered
+replace the stub in `deploy/templates/98-7-portworx-register.sh`; the rendered
 per-site copy under `deploy/sites/<site>/` is gitignored so credentials don't
 leak, and operators run it after the StorageCluster reaches `phase=Running`.
 
-## Partition layout (set by `deploy/templates/01-/02-machineconfig-*.yaml`)
+## Partition layout (set by `deploy/templates/98-{0,1}-machineconfig-*.yaml`)
 
 Each install disk is partitioned at install time:
 
@@ -39,7 +39,7 @@ Arbiter has no p6 — it's storageless.
 The shipped config uses `useAll: true` (raw whole disks only) on each master,
 plus a raw-path `systemMetadataDevice` (e.g. `/dev/vda5`, `/dev/sda5`,
 `/dev/nvme0n1p5`) populated **per node** by
-`deploy/templates/04-prepare-for-portworx.sh`. Trade-off: the on-disk
+`deploy/templates/98-4-prepare-for-portworx.sh`. Trade-off: the on-disk
 px-data partition is **not** auto-consumed; add it post-install:
 
 ```sh
@@ -52,10 +52,10 @@ etc.) fails to init because PX enumerates the underlying device twice (once
 via discovery, once via the metadata reservation) and collides. We work
 around it by shipping a raw-path value — but raw paths differ across
 hardware (`vda5` on libvirt, `sda5` / `nvme0n1p5` on bare metal), so
-`04-prepare-for-portworx.sh` queries each node via `oc debug` at install
+`98-4-prepare-for-portworx.sh` queries each node via `oc debug` at install
 time (`readlink -f /dev/disk/by-partlabel/px-metadata`) and `sed`-replaces
 the per-node `${MASTER1_META_DEV}` / `${MASTER2_META_DEV}` / `${ARBITER_META_DEV}`
-tokens in the adjacent `06-portworx-storagecluster.yaml` before the operator
+tokens in the adjacent `98-6-portworx-storagecluster.yaml` before the operator
 sees it. No site-specific hand-editing; the CSV-templated `deploy/` stays
 hardware-agnostic.
 
@@ -66,8 +66,8 @@ as anything but a raw path — see README → Known-broken-configs.
 
 ## Pre-reqs OCP doesn't provide (already handled)
 
-- px-metadata + px-data partitions — created by `deploy/templates/01-/02-machineconfig-*.yaml`.
-- Stable `/dev/disk/by-partlabel/px-metadata` symlink — automatic from the partition `label:`. Referenced by `04-prepare-for-portworx.sh` at install time; **not** referenced in the final `06-` (see above).
+- px-metadata + px-data partitions — created by `deploy/templates/98-{0,1}-machineconfig-*.yaml`.
+- Stable `/dev/disk/by-partlabel/px-metadata` symlink — automatic from the partition `label:`. Referenced by `98-4-prepare-for-portworx.sh` at install time; **not** referenced in the final `98-6-` (see above).
 - No `/var/lib/portworx` filesystem mount — MachineConfigs intentionally omit `filesystems:` and `systemd:` blocks.
 - SCCs + privileged-pod RBAC — Portworx operator creates its own SCC.
 - Kernel modules (`dm_thin_pool`, `dmsetup`) — built into RHCOS 9.6.

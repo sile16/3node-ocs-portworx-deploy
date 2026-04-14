@@ -26,7 +26,7 @@ PX_POD=$("$OC" -n portworx get pods -l name=portworx -o name 2>/dev/null | head 
 if [ -n "$PX_POD" ]; then
   "$OC" -n portworx exec "$PX_POD" -c portworx -- /opt/pwx/bin/pxctl status 2>&1 | head -30 || true
 else
-  echo "  (no portworx daemonset pod found — did you render deploy/sites/<site>/ and apply 03 → 04 → 05 → 06?)"
+  echo "  (no portworx daemonset pod found — did you render deploy/sites/<site>/ and apply 98-3 → 98-4 → 98-5 → 98-6?)"
   exit 1
 fi
 

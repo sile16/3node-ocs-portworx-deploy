@@ -19,7 +19,7 @@
 #   - `oc get nodes -o wide`
 #   - `oc get clusterversion`
 #   - `oc get co` (ClusterOperators)
-#   - `oc get mcp`  (MachineConfigPools — confirms our 98-px-storage-* applied)
+#   - `oc get mcp`  (MachineConfigPools — confirms our 98-{0,1}-machineconfig-* applied)
 #
 # The SSH key Ignition injects into the core user's authorized_keys is
 # ~/.ssh/id_rsa.pub (via generate-iso.sh). Plain ssh -i against the
@@ -165,11 +165,11 @@ if [ -r "$KUBECONFIG_PATH" ]; then
     echo "### oc get mcp"
     oc get mcp 2>&1 || true
     echo
-    echo "### MachineConfig: 98-px-storage-master"
-    oc get mc 98-px-storage-master -o yaml 2>&1 || true
+    echo "### MachineConfig: 98-0-machineconfig-master"
+    oc get mc 98-0-machineconfig-master -o yaml 2>&1 || true
     echo
-    echo "### MachineConfig: 98-px-storage-arbiter"
-    oc get mc 98-px-storage-arbiter -o yaml 2>&1 || true
+    echo "### MachineConfig: 98-1-machineconfig-arbiter"
+    oc get mc 98-1-machineconfig-arbiter -o yaml 2>&1 || true
   } > "$CLUSTER_LOG" 2>&1
   echo "  -> ${CLUSTER_LOG}"
 else

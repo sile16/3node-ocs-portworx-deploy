@@ -34,7 +34,4 @@ secrets/*
 original_aicli
 original_aicli/*
 
-# Rendered per-site output lives under deploy/sites/<site>/ and is already
-# gitignored by deploy/.gitignore; operators put real license/registration
-# content in the template at deploy/templates/07-portworx-register.sh or
-# edit the rendered per-site copy (which won't be committed).
+deploy/sites/*

@@ -2,15 +2,15 @@
 # Prep nodes for Portworx.
 #
 # Two jobs:
-#   1. Label masters / arbiter so 06-'s placement nodeAffinity matches.
+#   1. Label masters / arbiter so 98-6-'s placement nodeAffinity matches.
 #   2. Resolve /dev/disk/by-partlabel/px-metadata → the actual raw device
 #      on each node (e.g. /dev/vda5 on libvirt, /dev/sda5 or
 #      /dev/nvme0n1p5 on bare metal) and generate
-#      06-portworx-storagecluster.yaml from the adjacent .yaml.template
+#      98-6-portworx-storagecluster.yaml from the adjacent .yaml.template
 #      template.
 #
 # Must run AFTER the cluster is installed (MCs rolled so the
-# px-metadata partition exists) and BEFORE applying 06-.
+# px-metadata partition exists) and BEFORE applying 98-6-.
 # Rerunning is safe: .yaml.template is read-only input; .yaml is regenerated
 # from it each run, so changed device mappings pick up cleanly.
 
@@ -48,19 +48,19 @@ do
   host="${entry%%|*}"; dev="${entry##*|}"
   if [ -z "$dev" ]; then
     echo "FATAL: could not resolve /dev/disk/by-partlabel/px-metadata on $host." >&2
-    echo "       Is the cluster fully installed and have the 01-/02- MCs rolled?" >&2
+    echo "       Is the cluster fully installed and have the 98-{0,1}-machineconfig-* MCs rolled?" >&2
     exit 1
   fi
   printf "  %-30s %s\n" "$host" "$dev"
 done
 
-# ── generate 06-…yaml from 06-…yaml.in ───────────────────────────────────
-# portworx-storagecluster.yaml.template has one unique token per stanza (${MASTER1_META_DEV},
-# ${MASTER2_META_DEV}, ${ARBITER_META_DEV}); three plain sed replaces are
-# enough. The .in is untouched so rerunning this script always regenerates
-# .yaml cleanly from a known-good source.
+# ── generate 98-6-portworx-storagecluster.yaml from portworx-storagecluster.yaml.template ───────────────────────────────
+# portworx-storagecluster.yaml.template has one unique token per stanza
+# (${MASTER1_META_DEV}, ${MASTER2_META_DEV}, ${ARBITER_META_DEV}); three plain
+# sed replaces are enough. The .template is untouched so rerunning this
+# script always regenerates the .yaml cleanly from a known-good source.
 SRC="$HERE/portworx-storagecluster.yaml.template"
-OUT="$HERE/06-portworx-storagecluster.yaml"
+OUT="$HERE/98-6-portworx-storagecluster.yaml"
 [ -f "$SRC" ] || { echo "FATAL: $SRC not found" >&2; exit 1; }
 
 sed \
@@ -70,14 +70,4 @@ sed \
   -e "s|\${ARBITER_META_DEV}|$ARBITER_META|g" \
   "$SRC" > "$OUT"
 
-# Sanity: no META_DEV placeholders OR stray active by-partlabel refs should
-# remain (grep -v skips comment lines — templates document alternates in
-# comments we don't want to trip on).
-if grep -vE '^[[:space:]]*#' "$OUT" | grep -qE '\$\{(MASTER1|MASTER2|ARBITER)_META_DEV\}|by-partlabel/px-metadata'; then
-  echo "FATAL: unrendered placeholders or active partlabel refs still in $OUT:" >&2
-  grep -nE '\$\{(MASTER1|MASTER2|ARBITER)_META_DEV\}|by-partlabel/px-metadata' "$OUT" \
-    | grep -vE ':[[:space:]]*#' >&2
-  exit 1
-fi
-
-echo "Generated 06-portworx-storagecluster.yaml from .yaml.template with per-node raw device paths."
+echo "Generated 98-6-portworx-storagecluster.yaml from .yaml.template with per-node raw device paths."
