@@ -6,12 +6,12 @@
 #   2. Resolve /dev/disk/by-partlabel/px-metadata → the actual raw device
 #      on each node (e.g. /dev/vda5 on libvirt, /dev/sda5 or
 #      /dev/nvme0n1p5 on bare metal) and generate
-#      06-portworx-storagecluster.yaml from the adjacent .yaml.in
+#      06-portworx-storagecluster.yaml from the adjacent .yaml.template
 #      template.
 #
 # Must run AFTER the cluster is installed (MCs rolled so the
 # px-metadata partition exists) and BEFORE applying 06-.
-# Rerunning is safe: .yaml.in is read-only input; .yaml is regenerated
+# Rerunning is safe: .yaml.template is read-only input; .yaml is regenerated
 # from it each run, so changed device mappings pick up cleanly.
 
 set -euo pipefail
@@ -55,25 +55,29 @@ do
 done
 
 # ── generate 06-…yaml from 06-…yaml.in ───────────────────────────────────
-# 06-*.yaml.in has one unique token per stanza (${MASTER1_META_DEV},
+# 06-*.yaml.template has one unique token per stanza (${MASTER1_META_DEV},
 # ${MASTER2_META_DEV}, ${ARBITER_META_DEV}); three plain sed replaces are
 # enough. The .in is untouched so rerunning this script always regenerates
 # .yaml cleanly from a known-good source.
-SRC="$HERE/06-portworx-storagecluster.yaml.in"
+SRC="$HERE/06-portworx-storagecluster.yaml.template"
 OUT="$HERE/06-portworx-storagecluster.yaml"
 [ -f "$SRC" ] || { echo "FATAL: $SRC not found" >&2; exit 1; }
 
 sed \
+  -e '/^@@ DO NOT/d' \
   -e "s|\${MASTER1_META_DEV}|$MASTER1_META|g" \
   -e "s|\${MASTER2_META_DEV}|$MASTER2_META|g" \
   -e "s|\${ARBITER_META_DEV}|$ARBITER_META|g" \
   "$SRC" > "$OUT"
 
-# Sanity: no META_DEV placeholders OR stray by-partlabel refs should remain.
-if grep -qE '\$\{(MASTER1|MASTER2|ARBITER)_META_DEV\}|by-partlabel/px-metadata' "$OUT"; then
-  echo "FATAL: unrendered placeholders or partlabel refs still in $OUT:" >&2
-  grep -nE '\$\{(MASTER1|MASTER2|ARBITER)_META_DEV\}|by-partlabel/px-metadata' "$OUT" >&2
+# Sanity: no META_DEV placeholders OR stray active by-partlabel refs should
+# remain (grep -v skips comment lines — templates document alternates in
+# comments we don't want to trip on).
+if grep -vE '^[[:space:]]*#' "$OUT" | grep -qE '\$\{(MASTER1|MASTER2|ARBITER)_META_DEV\}|by-partlabel/px-metadata'; then
+  echo "FATAL: unrendered placeholders or active partlabel refs still in $OUT:" >&2
+  grep -nE '\$\{(MASTER1|MASTER2|ARBITER)_META_DEV\}|by-partlabel/px-metadata' "$OUT" \
+    | grep -vE ':[[:space:]]*#' >&2
   exit 1
 fi
 
-echo "Generated 06-portworx-storagecluster.yaml from .yaml.in with per-node raw device paths."
+echo "Generated 06-portworx-storagecluster.yaml from .yaml.template with per-node raw device paths."

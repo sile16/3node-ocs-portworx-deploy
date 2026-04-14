@@ -56,7 +56,7 @@ aicli create deployment --paramfile aicli_parameters.yml prod-aus
 # 2. Portworx bring-up — run the numbered steps in order.
 export KUBECONFIG=/path/to/kubeconfig
 oc apply -f 03-configmap-clulster-monitoring.yaml
-./04-prepare-for-portworx.sh               # labels nodes + generates 06-*.yaml from .yaml.in
+./04-prepare-for-portworx.sh               # labels nodes + generates 06-*.yaml from .yaml.template
 oc apply -f 05-portworx-subscription.yaml
 # installPlanApproval is Manual + pinned via startingCSV — approve before waiting.
 oc -n portworx patch "$(oc -n portworx get installplan -o name | head -1)" \

@@ -85,12 +85,7 @@ tail -n +2 "$CSV" | tr -d '\r' | while IFS=',' read -r -a values; do
   for template in "$TEMPLATES"/*; do
     [ -f "$template" ] || continue
     fname="$(basename "$template")"
-    case "$fname" in
-      *.template) out_name="${fname%.template}" ;;
-      *.tmpl)     out_name="${fname%.tmpl}"     ;;
-      *)          out_name="$fname"             ;;
-    esac
-    output="${site_out}/${out_name}"
+    output="${site_out}/${fname}"
     subst < "$template" > "$output"
     # Preserve executable bit so rendered .sh scripts stay runnable.
     [ -x "$template" ] && chmod +x "$output"

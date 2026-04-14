@@ -1,3 +1,4 @@
+@@ DO NOT `oc apply` this file — run 04-prepare-for-portworx.sh first, which generates 06-portworx-storagecluster.yaml. This marker is intentional invalid YAML (reserved indicator `@` at column 0) so a direct apply errors out instead of silently installing a broken StorageCluster.
 # Portworx StorageCluster — 2+1 arbiter (TNA), PX-StoreV2, RF=2.
 # ${MASTER1_HOST} / ${MASTER2_HOST} / ${ARBITER_HOST} are filled per-site by
 
@@ -61,12 +62,15 @@ spec:
       storage:
         useAll: true
         systemMetadataDevice: ${MASTER1_META_DEV}
+        #systemMetadataDevice: /dev/disk/by-partlabel/px-metadata # this works as well, but direct device is preferred
+
 
     - selector:
         nodeName: ${MASTER2_HOST}
       storage:
         useAll: true
         systemMetadataDevice: ${MASTER2_META_DEV}
+        #systemMetadataDevice: /dev/disk/by-partlabel/px-metadata # this works as well, but direct device is preferred
 
     - selector:
         nodeName: ${ARBITER_HOST}
@@ -74,3 +78,5 @@ spec:
         devices: []
         useAll: false
         kvdbDevice: ${ARBITER_META_DEV}
+        #kvdbDevice: /dev/disk/by-partlabel/px-metadata # this works as well, but direct device is preferred
+
