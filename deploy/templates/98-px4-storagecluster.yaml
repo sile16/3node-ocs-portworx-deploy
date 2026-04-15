@@ -44,10 +44,12 @@ spec:
     prometheus:
       exportMetrics: true
 
-  # Portworx Lighthouse in-cluster GUI. Exposed via OCP Route — see
-  # deploy/templates/98-px6-lighthouse-route.yaml.
-  userInterface:
-    enabled: true
+  # Portworx GUI: the embedded Lighthouse path (spec.userInterface / ocpDynamicPlugin)
+  # is deprecating in PX 26.1.0 — neither option auto-defaults an image, both require
+  # explicit pluginImage / image fields. For a UI, prefer either:
+  #   - Pure1 (https://pure1.purestorage.com) — free for PX, SaaS
+  #   - Portworx Central — on-prem, deploy via Helm chart `portworx-central`
+  # The OpenShift web console is always available for pod/PVC views.
 
   runtimeOptions:
     default-io-profile: "6"
