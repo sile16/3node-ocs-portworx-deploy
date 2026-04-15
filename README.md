@@ -53,9 +53,13 @@ aicli create cluster    --paramfile aicli_parameters.yml prod-aus
 aicli create deployment --paramfile aicli_parameters.yml prod-aus
 # wait ~30-60 min for install-complete
 
-# 2. (SB-enabled sites only) MOK-enroll the Portworx signing cert on each node.
-#    Skip if Secure Boot is disabled in BIOS.
-export KUBECONFIG=/path/to/kubeconfig
+# All steps below require a working `oc` authenticated to the new cluster.
+# `aicli` already produces a kubeconfig; grab its path with:
+#    export KUBECONFIG=$(aicli info cluster prod-aus -f kubeconfig)
+# If you already have `oc get nodes` working against this cluster, skip that.
+
+# 2. (Secure-Boot-enabled sites only) MOK-enroll the Portworx signing cert on each node.
+#    Skip if Secure Boot is disabled in BIOS and go to step 3.
 ./98-px0-enroll-mok-secure-boot.sh                    # stages mokutil --import + prints reboot checklist
 # reboot each node via IPMI/iDRAC/iLO; answer MokManager (~10 s prompt) with the printed password
 ./98-px0-enroll-mok-secure-boot.sh --verify           # confirms Portworx CA is in each node's enrolled MOKs
