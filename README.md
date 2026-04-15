@@ -168,11 +168,20 @@ in `test/kvm/README.md`. Full reproduction runbook is `docs/RUNBOOK.md`.
 
 ## Resilience tests
 
-| Test | Steps | Outcome |
-|---|---|---|
-| GPT partition-label change survives reboot | On a running node: `sgdisk --change-name=5:px-metadata-broken /dev/vda` → `udevadm trigger` → `virsh reboot`. Node reboots with `/dev/disk/by-partlabel/px-metadata` absent. | **PX recovered on its own** (~60–90 s after node Ready). `pxctl status` showed `Metadata Device: /dev/vda5` — PX resolved the raw device via filesystem UUID fallback despite the configured partlabel symlink being gone. Other nodes + StorageCluster `phase=Running` unaffected. Restoring the label with `sgdisk --change-name=5:px-metadata` was immediate and non-disruptive. Validated 2026-04-14 on libvirt with Secure Boot ON. |
+All validated 2026-04-14 on libvirt with Secure Boot ON. Together these show that **Portworx 3.6.0 tolerates the full class of "partition-label / MOK-enrollment got disturbed" failures without corrupting data or needing a StorageCluster rebuild** — which is exactly the robustness you want when a large fleet deploy hits one weird node.
 
-Implication: a missing `/dev/disk/by-partlabel/px-metadata` symlink *alone* is not sufficient to break PX. If a node hits this failure mode in the wild, check whether the partition **device node itself** (e.g. `/dev/sdX5`) exists — if it does, PX will rediscover; if it doesn't (GPT wiped), full GPT rebuild from the kernel's in-memory view is needed. See `docs/portworx-design.md` → "Secure Boot" / recovery notes.
+| Test | What we did | PX behavior |
+|---|---|---|
+| **GPT partlabel renamed + node rebooted** | `sgdisk --change-name=5:px-metadata-broken /dev/vda` → reboot. `/dev/disk/by-partlabel/px-metadata` is gone after boot. | **Self-recovered** in ~60–90 s. `pxctl status` showed `Metadata Device: /dev/vda5` — PX fell back to filesystem-UUID discovery. Cluster stayed `phase=Running`. Restoring the label was immediate, non-disruptive. |
+| **SB on, no PX cert anywhere** (E1) | Installed cluster with SB enabled and zero Portworx trust in UEFI db / MOK. Applied full PX bring-up. | Clean failure. `pxctl alerts`: `SecureBootCertNotEnrolled`. `px-runc` exits before touching any device. StorageCluster stuck at `Initializing`. **All 6 GPT partition labels on every node intact.** No disk writes. |
+| **Progressive MOK enrollment** (E2 → E3) | From the E1 failed state, added PX cert to master-1 only → observed asymmetric cluster. Then added to arbiter → 2/3 Online, still no quorum for writes. Then added to master-2 → full cluster. | Cluster healed incrementally. No teardown/reapply of the StorageCluster needed. `phase` went `Initializing → Degraded → Initializing → Running` as quorum arrived. **Partition labels intact through every transition.** |
+
+**Takeaways**
+
+- **A missing `/dev/disk/by-partlabel/<name>` symlink alone does not break PX.** PX caches the filesystem UUID of its metadata device and rediscovers the raw partition even when the symlink is gone. A missing `by-partlabel` dir on a failing node is a symptom, not a cause — the real question is whether the partition device node (e.g. `/dev/sdX5`) still exists.
+- **PX's normal code paths don't modify GPT.** Across the no-cert install, partial-fix, and full-recovery cycles, every GPT partition entry (name, type, offsets) survived byte-identical. If a node in the wild has a wiped GPT, the cause is external to PX's bring-up (e.g. operator ran `wipefs -a` / `sgdisk --zap-all` during debugging, or a re-provisioning script targeted the wrong disk).
+- **Asymmetric fix-up is safe.** Per-node MOK enrollment can land at its own pace — the StorageCluster doesn't need to be deleted and re-applied; PX promotes nodes to `Online` as their local cert becomes valid.
+- **Recovery recipe for a wiped GPT:** while the kernel's in-memory partition table still holds (don't reboot yet), capture exact start/size sectors from `/sys/block/<disk>/<diskN>/{start,size}`, then rebuild GPT with `sgdisk --new=… --typecode=… --change-name=…` matching, then `udevadm trigger`. See `docs/portworx-design.md`.
 
 ## Known-broken configs
 
