@@ -44,6 +44,11 @@ spec:
     prometheus:
       exportMetrics: true
 
+  # Portworx Lighthouse in-cluster GUI. Exposed via OCP Route — see
+  # deploy/templates/98-px6-lighthouse-route.yaml.
+  userInterface:
+    enabled: true
+
   runtimeOptions:
     default-io-profile: "6"
 

@@ -1,0 +1,19 @@
+# Expose Portworx Lighthouse (in-cluster GUI, enabled via spec.userInterface.enabled
+# on the StorageCluster) as an OCP Route so operators can reach it without
+# port-forwarding. Uses the cluster's default Ingress cert via `reencrypt`.
+#
+# URL after apply: https://px-lighthouse-portworx.apps.<cluster>/
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: px-lighthouse
+  namespace: portworx
+spec:
+  to:
+    kind: Service
+    name: px-lighthouse
+  port:
+    targetPort: https
+  tls:
+    termination: reencrypt
+    insecureEdgeTerminationPolicy: Redirect

@@ -1,0 +1,85 @@
+# Minimal KubeVirt test VM on Portworx — smoke-test that PX-backed DataVolume
+# provisions RWX Block, VM boots, and cloud-init seeds a login.
+#
+# Flow at apply time:
+#   1. DataVolume `vm-pxtest-boot` → PVC on `px-rwx-block-kubevirt`
+#      (PX 3.6.0 + operator 26.1.0 auto-sets this SC as the KubeVirt default
+#      once the HyperConverged CR is present)
+#   2. CDI imports the Fedora Cloud image into the PVC's block device
+#   3. VirtualMachine references the PVC as a `persistentVolumeClaim` disk
+#   4. cloud-init sets the fedora user password = fedora
+#
+# Verify:
+#   oc get pvc -n default vm-pxtest-boot   # Bound, RWX, Block
+#   oc get dv  -n default vm-pxtest-boot   # Succeeded
+#   oc get vmi -n default vm-pxtest        # Running, with node assignment
+#   virtctl console vm-pxtest              # (or: oc -n default console vmi/vm-pxtest)
+#   login: fedora / fedora
+#
+# Live-migration smoke test (requires a second compute node with virt-handler):
+#   virtctl migrate vm-pxtest              # PVC follows via RWX block
+---
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: vm-pxtest-boot
+  namespace: default
+  labels:
+    portworx.io/app: kubevirt
+spec:
+  source:
+    http:
+      url: https://download.fedoraproject.org/pub/fedora/linux/releases/40/Cloud/x86_64/images/Fedora-Cloud-Base-Generic.x86_64-40-1.14.qcow2
+  pvc:
+    accessModes:
+      - ReadWriteMany
+    volumeMode: Block
+    resources:
+      requests:
+        storage: 20Gi
+    storageClassName: px-rwx-block-kubevirt
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: vm-pxtest
+  namespace: default
+spec:
+  running: true
+  template:
+    metadata:
+      labels:
+        kubevirt.io/domain: vm-pxtest
+    spec:
+      domain:
+        cpu:
+          cores: 1
+        resources:
+          requests:
+            memory: 2Gi
+        devices:
+          disks:
+            - name: rootdisk
+              disk:
+                bus: virtio
+            - name: cloudinit
+              disk:
+                bus: virtio
+          interfaces:
+            - name: default
+              masquerade: {}
+      networks:
+        - name: default
+          pod: {}
+      volumes:
+        - name: rootdisk
+          persistentVolumeClaim:
+            claimName: vm-pxtest-boot
+        - name: cloudinit
+          cloudInitNoCloud:
+            userData: |
+              #cloud-config
+              user: fedora
+              password: fedora
+              chpasswd: { expire: false }
+              ssh_pwauth: True

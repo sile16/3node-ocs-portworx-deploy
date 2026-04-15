@@ -1,0 +1,38 @@
+# OpenShift Virtualization (CNV) — operator install.
+# Creates the openshift-cnv namespace, OperatorGroup, and Subscription.
+# Installed via OLM from the redhat-operators catalog.
+#
+# Apply order:
+#   1. this file                       → operator CSV installs
+#   2. approve the InstallPlan         (Manual approval mirrors PX pattern)
+#   3. 99-kubevirt-2-hyperconverged.yaml → HCO CR deploys virt stack
+#
+# PX operator (>=25.5.0) watches for HyperConverged and auto-creates
+# StorageClasses px-rwx-block-kubevirt / px-rwx-file-kubevirt / px-cdi-scratch.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-cnv
+  labels:
+    openshift.io/cluster-monitoring: "true"
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: kubevirt-hyperconverged-group
+  namespace: openshift-cnv
+spec:
+  targetNamespaces:
+    - openshift-cnv
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: hco-operatorhub
+  namespace: openshift-cnv
+spec:
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  name: kubevirt-hyperconverged
+  channel: stable
+  installPlanApproval: Manual
