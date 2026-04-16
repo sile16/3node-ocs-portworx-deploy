@@ -1,0 +1,49 @@
+# Portworx StorageClasses for OpenShift Virtualization / KubeVirt.
+#
+# Apply AFTER 99-kubevirt-2-hyperconverged.yaml (HCO must exist so CNV
+# knows which SC to use as the VM default). PX operator >=25.5.0 is
+# supposed to auto-create these when it detects HyperConverged, but
+# in practice the auto-creation doesn't fire if PX was already Running
+# before HCO appeared. Ship them explicitly so the flow is deterministic.
+#
+# Per PX docs:
+#   https://docs.portworx.com/portworx-enterprise/provision-storage/kubevirt-vms/manage-kubevirt-vms-rwx-block/openshift
+#
+# Three classes, each tuned for a KubeVirt use case:
+#   px-rwx-block-kubevirt   — VM boot/data disks (RWX Block, default virt class)
+#   px-rwx-file-kubevirt    — shared filesystem for vTPM, cloud-init ISOs
+#   px-cdi-scratch           — CDI importer scratch space (single-replica, ephemeral)
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: px-rwx-block-kubevirt
+  annotations:
+    storageclass.kubevirt.io/is-default-virt-class: "true"
+provisioner: pxd.portworx.com
+parameters:
+  repl: "2"
+  nodiscard: "true"
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: px-rwx-file-kubevirt
+provisioner: pxd.portworx.com
+parameters:
+  repl: "2"
+  sharedv4: "true"
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: px-cdi-scratch
+provisioner: pxd.portworx.com
+parameters:
+  repl: "1"
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
