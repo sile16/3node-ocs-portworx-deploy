@@ -110,31 +110,31 @@ After all nodes have rebooted and enrolled:
 # Expected: all nodes show "OK (Portworx CA enrolled)"
 ```
 
-### Step 5: Portworx bring-up
+### Step 5: Portworx bring-up (~10-15 min total)
 
 Run these in order from the rendered site directory (`deploy/sites/<site>/`):
 
 ```sh
-# 5a. Enable cluster-monitoring user-workload
+# 5a. Enable cluster-monitoring user-workload (~5 s)
 oc apply -f 98-px2-configmap-cluster-monitoring.yaml
 
-# 5b. Apply Kubernetes node labels (portworx.io/node-type, portworx.io/run-on-master)
+# 5b. Apply Kubernetes node labels (~5 s)
 ./98-px1-prepare.sh
 
-# 5c. Install PX operator (Automatic approval — installs without manual step)
+# 5c. Install PX operator — Automatic approval, no manual step (~3-5 min)
 oc apply -f 98-px3-operator-subscription.yaml
 
 # 5d. Wait for the PX operator deployment to become Available
 oc -n portworx wait --for=condition=Available deployment/portworx-operator --timeout=10m
 
-# 5e. Deploy the StorageCluster (TNA topology, partlabel-based, repl=2)
+# 5e. Deploy the StorageCluster — reaches phase=Running in ~5-8 min
 oc apply -f 98-px4-storagecluster.yaml
 
 # 5f. Optional: activate license / register with PX-Central
 ./98-px5-register.sh
 
-# 5g. Health check (run anytime — flags known-bad symptoms)
-./check_px_status.sh
+# 5g. Health check (run anytime — exits nonzero on failures)
+../../check_px_status.sh
 ```
 
 ### Step 6: Verify
