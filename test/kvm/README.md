@@ -60,8 +60,9 @@ node, so tuning resources or adding a host is a config-file edit.
 - **Agent installer issues `poweroff` post-write-to-disk.** libvirt's default `on_poweroff=destroy` would orphan the install. Run `host-setup/autostart-watcher.sh start` BEFORE `create-vms.sh` — it polls `domstate` and restarts shut-off VMs within ~2 s. `create-vms.sh` launches it automatically.
 - **`agent-config.yaml` `rootDeviceHints.deviceName` must match the actual guest device.** Mismatch causes a silent "ready but never installing" stall.
 - **`bus='nvme'` is rejected by libvirt's domain XML schema.** Masters use `virtio-blk` (`/dev/vda`), arbiter uses `virtio-scsi` (`/dev/sda`). The `coreos-boot-disk` symlink in `deploy/templates/98-machineconfig-*` makes the MachineConfigs bus-agnostic.
-- **Secure Boot off in firmware.** `create-vms.sh` uses the non-SB OVMF firmware variant — required for Portworx `px.ko`.
+- **Secure Boot ON** in the libvirt firmware (`create-vms.sh` uses `OVMF_CODE_4M.secboot.fd` + per-VM NVRAM pre-seeded by `host-setup/px-secboot-vars.sh` with the Portworx CA in UEFI `db` + MOK). PX 3.6.0 `px.ko` is signed; the pre-seeded cert avoids the interactive MokManager step that the bare-metal flow needs. Requires `python3-virt-firmware` (`virt-fw-vars`) on the host. Set `SEED_PX_CERT=no` to boot without PX trust (simulates bare-metal first-boot).
 - **`virt-install`'s disk-size check sums VIRTUAL sizes.** `create-vms.sh` passes `--check disk_size=off,path_in_use=off`.
+- **KSM (Kernel Same-page Merging):** crank `pages_to_scan=10000` + `sleep_millisecs=50` before running VMs — dedupes ~16 GiB across 3 similar RHCOS guests. Without KSM, 24 GiB masters + arbiter + CNV pods exceed 62 GiB host RAM. Enable swap as a safety net (`swapon /swapfile`). See the host-setup commands in `docs/RUNBOOK.md`.
 
 ## Iteration speed: the registry cache
 
