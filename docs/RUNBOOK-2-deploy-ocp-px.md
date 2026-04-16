@@ -118,28 +118,19 @@ oc apply -f 98-px2-configmap-cluster-monitoring.yaml
 # 5b. Apply Kubernetes node labels (portworx.io/node-type, portworx.io/run-on-master)
 ./98-px1-prepare.sh
 
-# 5c. Install PX operator (Manual approval + pinned startingCSV)
+# 5c. Install PX operator (Automatic approval — installs without manual step)
 oc apply -f 98-px3-operator-subscription.yaml
 
-# 5d. Approve the InstallPlan (wait for it to appear first)
-#     The InstallPlan may take 30-60 s to be created by OLM after the
-#     subscription. If the command below returns empty, wait and retry.
-IP=$(oc -n portworx get installplan -o name | head -1)
-oc -n portworx patch "$IP" --type merge -p '{"spec":{"approved":true}}'
-
-# 5e. Wait for the PX operator deployment to become Available
-#     NOTE: this may return NotFound if OLM hasn't created the deployment
-#     yet — poll `oc -n portworx get deploy portworx-operator` until it
-#     exists, then run the wait.
+# 5d. Wait for the PX operator deployment to become Available
 oc -n portworx wait --for=condition=Available deployment/portworx-operator --timeout=10m
 
-# 5f. Deploy the StorageCluster (TNA topology, partlabel-based, repl=2)
+# 5e. Deploy the StorageCluster (TNA topology, partlabel-based, repl=2)
 oc apply -f 98-px4-storagecluster.yaml
 
-# 5g. Optional: activate license / register with PX-Central
+# 5f. Optional: activate license / register with PX-Central
 ./98-px5-register.sh
 
-# 5h. Health check (run anytime — flags known-bad symptoms)
+# 5g. Health check (run anytime — flags known-bad symptoms)
 ./check_px_status.sh
 ```
 

@@ -67,12 +67,10 @@ export KUBECONFIG=$(aicli info cluster prod-aus -f kubeconfig)
 ./98-px0-enroll-mok-secure-boot.sh --verify           # confirms Portworx CA is in each node's enrolled MOKs
 
 # 3. Portworx bring-up — run the numbered steps in order.
-./98-px1-prepare.sh                       # labels masters + arbiter
+./98-px1-prepare.sh                       # Kubernetes node labels
 oc apply -f 98-px2-configmap-cluster-monitoring.yaml
-oc apply -f 98-px3-subscription.yaml
-# installPlanApproval is Manual + pinned via startingCSV — approve before waiting.
-oc -n portworx patch "$(oc -n portworx get installplan -o name | head -1)" \
-  --type merge -p '{"spec":{"approved":true}}'
+oc apply -f 98-px3-operator-subscription.yaml
+# installPlanApproval is Automatic — operator installs without manual approval.
 oc -n portworx wait --for=condition=Available deploy/portworx-operator --timeout=10m
 oc apply -f 98-px4-storagecluster.yaml
 ./98-px5-register.sh                      # optional, site-specific license

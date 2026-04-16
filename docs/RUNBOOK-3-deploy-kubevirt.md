@@ -39,10 +39,7 @@ path) without an explicit `storageClassName`.
 ```sh
 oc apply -f 99-kubevirt-1-operator-subscription.yaml
 
-# Wait for InstallPlan + approve (Manual approval, same pattern as PX)
-IP=$(oc -n openshift-cnv get installplan -o name | head -1)
-oc -n openshift-cnv patch "$IP" --type merge -p '{"spec":{"approved":true}}'
-
+# installPlanApproval is Automatic — operator installs without manual approval.
 # Wait for HCO operator
 oc -n openshift-cnv wait --for=condition=Available deployment/hco-operator --timeout=10m
 ```
