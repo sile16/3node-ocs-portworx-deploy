@@ -1,4 +1,3 @@
-
 #!/usr/bin/env bash
 # Render deploy/templates/* per site into deploy/sites/<site>/, using
 #
@@ -6,6 +5,12 @@
 # ${VAR}. Only columns defined in the CSV header are substituted — unrelated
 # shell variables (e.g. ${KUBECONFIG}, ${HERE}, bash array refs inside
 # 98-px1-prepare.sh) pass through unchanged. No shell eval.
+#
+# Usage:
+#   ./render.sh                  # render only NEW sites (skip existing)
+#   ./render.sh austin           # render only 'austin' (skip if exists)
+#   ./render.sh -o               # render ALL sites, overwrite existing
+#   ./render.sh -o austin        # render 'austin', overwrite if exists
 
 set -euo pipefail
 
@@ -17,7 +22,16 @@ OUT="${HERE}/sites"
 [ -f "$CSV" ]       || { echo "FATAL: $CSV not found"       >&2; exit 1; }
 [ -d "$TEMPLATES" ] || { echo "FATAL: $TEMPLATES not found" >&2; exit 1; }
 
-site_filter="${1:-}"
+# Parse flags.
+OVERWRITE=false
+site_filter=""
+for arg in "$@"; do
+  case "$arg" in
+    -o|--overwrite) OVERWRITE=true ;;
+    -*) echo "FATAL: unknown flag '$arg' (usage: render.sh [-o] [site])" >&2; exit 2 ;;
+    *)  site_filter="$arg" ;;
+  esac
+done
 
 # Header row → uppercase column-name array (env-var names).
 IFS=',' read -r -a headers < <(head -1 "$CSV" | tr -d '\r')
@@ -55,8 +69,9 @@ subst() {
 }
 
 declare -A seen_sites=()
+skipped=0
 
-tail -n +2 "$CSV" | tr -d '\r' | while IFS=',' read -r -a values; do
+while IFS=',' read -r -a values; do
   [ "${#values[@]}" -gt 0 ] || continue
   [ -n "${values[0]:-}" ]   || continue   # skip blank rows
 
@@ -78,7 +93,13 @@ tail -n +2 "$CSV" | tr -d '\r' | while IFS=',' read -r -a values; do
   [ -z "$site_filter" ] || [ "$site" = "$site_filter" ] || continue
 
   site_out="${OUT}/${site}"
-  # Wipe just this site's output so other sites rendered earlier stay intact.
+
+  # Skip existing sites unless -o/--overwrite is set.
+  if [ -d "$site_out" ] && [ "$OVERWRITE" = false ]; then
+    skipped=$((skipped + 1))
+    continue
+  fi
+
   rm -rf "$site_out"
   mkdir -p "$site_out"
 
@@ -91,4 +112,8 @@ tail -n +2 "$CSV" | tr -d '\r' | while IFS=',' read -r -a values; do
     [ -x "$template" ] && chmod +x "$output"
     echo "[$site] rendered $output"
   done
-done
+done < <(tail -n +2 "$CSV" | tr -d '\r')
+
+if [ "$skipped" -gt 0 ]; then
+  echo "$skipped existing site(s) skipped (use -o to overwrite)"
+fi
