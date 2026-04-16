@@ -48,9 +48,11 @@ cd deploy
 
 # 1. Cluster install via aicli (ISO burnt to USB, boot all 3 nodes).
 #    98-machineconfig-{master,arbiter} are packed into the agent installer ISO here.
+#    Cluster name (prod-aus below) comes from the cluster_name column in sites.csv.
+#    aicli auto-loads aicli_parameters.yml from CWD, so --paramfile is optional.
 cd sites/austin
-aicli create cluster    --paramfile aicli_parameters.yml prod-aus
-aicli create deployment --paramfile aicli_parameters.yml prod-aus
+aicli create cluster    prod-aus
+aicli create deployment prod-aus
 # wait ~30-60 min for install-complete
 
 # All steps below require a working `oc` authenticated to the new cluster.

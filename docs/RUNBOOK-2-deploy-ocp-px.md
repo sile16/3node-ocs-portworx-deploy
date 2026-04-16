@@ -31,12 +31,14 @@ RUNBOOK 1).
 
 ```sh
 cd deploy
-./render.py <site>                        # or: ./render.py <site>
+./render.py <site>
 cd sites/<site>
 
-# Create the cluster definition in assisted-service
-aicli create cluster    --paramfile aicli_parameters.yml <cluster_name>
-aicli create deployment --paramfile aicli_parameters.yml <cluster_name>
+# Create the cluster definition in assisted-service.
+# <cluster_name> is the cluster_name column from sites.csv (e.g. prod-aus).
+# aicli auto-loads aicli_parameters.yml from CWD — no --paramfile needed.
+aicli create cluster    <cluster_name>
+aicli create deployment <cluster_name>
 
 # Download the agent ISO (contains RHCOS + MachineConfigs including
 # the 98-machineconfig-{master,arbiter}.yaml that carve the px-metadata
