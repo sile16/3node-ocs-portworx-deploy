@@ -40,12 +40,17 @@ path) without an explicit `storageClassName`.
 oc apply -f 99-kubevirt-1-operator-subscription.yaml
 
 # installPlanApproval is Automatic — OLM installs without manual approval.
-# Wait for the HCO operator deployment (~3-5 min for image pull + start):
+# OLM needs ~2-3 min to pull the CSV + create the deployments.
+# `oc wait` exits immediately with NotFound if the resource doesn't exist
+# yet, so poll until the deployments appear, then wait for Available.
+
+# Wait for hco-operator to exist + become Available (~3-5 min):
+until oc -n openshift-cnv get deploy hco-operator >/dev/null 2>&1; do sleep 5; done
 oc -n openshift-cnv wait --for=condition=Available deployment/hco-operator --timeout=10m
 
-# Wait for the webhook to register endpoints before applying HCO.
-# Without this, `oc apply` of the HyperConverged CR hits:
-#   "no endpoints available for service hco-webhook-service"
+# Wait for the webhook — without this, applying HCO hits
+# "no endpoints available for service hco-webhook-service":
+until oc -n openshift-cnv get deploy hco-webhook >/dev/null 2>&1; do sleep 5; done
 oc -n openshift-cnv wait --for=condition=Available deployment/hco-webhook --timeout=5m
 ```
 
