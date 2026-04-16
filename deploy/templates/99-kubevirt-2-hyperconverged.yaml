@@ -13,9 +13,6 @@ metadata:
   name: kubevirt-hyperconverged
   namespace: openshift-cnv
 spec:
-  # Disable auto-import of RHEL/Fedora/CentOS boot images. On a 3-node
-  # TNA cluster these consume ~180 GiB of PX pool (6 images × 30 GiB × repl=2)
-  # and are rarely needed — operators import specific images on demand via
-  # DataVolumes. NOTE: the field is top-level spec, NOT under featureGates
-  # (that location is deprecated + silently ignored since CNV 4.21).
+  # Disable auto-import of RHEL/Fedora/CentOS boot images.
+  # These consume ~180 GiB of PX pool (6 images × 30 GiB × repl=2)
   enableCommonBootImageImport: false
