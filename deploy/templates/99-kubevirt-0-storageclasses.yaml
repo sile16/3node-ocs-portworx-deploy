@@ -1,9 +1,10 @@
 # Portworx StorageClasses for OpenShift Virtualization / KubeVirt.
 #
-# Ship these explicitly — do NOT rely on PX operator auto-creation:
-#   1. Auto-create doesn't fire if PX was Running before HCO appeared.
-#   2. Auto-created SCs default to repl=3, which FAILS on TNA (only 2
-#      storage nodes — arbiter is storageless). We pin repl=2 here.
+# Ship these explicitly rather than relying on PX operator auto-creation:
+#   1. Auto-create didn't fire in testing (PX was Running before HCO appeared).
+#   2. Even if auto-create fires, we need repl=2 for TNA (only 2 storage
+#      nodes — arbiter is storageless). Shipping explicit SCs guarantees
+#      the correct repl regardless of what auto-create would choose.
 #
 # Apply AFTER 99-kubevirt-2-hyperconverged.yaml (HCO must exist so CDI
 # can build StorageProfiles from these SCs).
