@@ -14,7 +14,7 @@ RUNBOOK 1).
 - 3 physical servers racked + cabled (2 masters, 1 arbiter)
 - Each server: ≥256 GB install disk, UEFI boot, network between nodes
 - IPMI / iDRAC / iLO access for console + power control
-- A build host with: `aicli`, `oc`, `openshift-install` on `$PATH`
+- A build host with: `aicli` (`pip install aicli`), `oc`, `openshift-install` on `$PATH`
 - Pull secret at `~/.local/pullsecret` (from console.redhat.com)
 - Site row populated in `deploy/sites.csv` with correct hostnames, MACs, VIPs, DNS
 

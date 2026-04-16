@@ -14,6 +14,7 @@ validated before shipping to real hardware.
 - `~/.local/pullsecret` (download from console.redhat.com/openshift/install/pull-secret)
 - `~/.ssh/id_rsa.pub`
 - `oc`, `kubectl`, `openshift-install` (matching OCP 4.21.x) on `$PATH`
+- `aicli` (`pip install aicli`) — assisted-installer CLI for cluster creation + kubeconfig
 - `python3-virt-firmware` (`apt install python3-virt-firmware`) for Secure Boot NVRAM seeding
 
 ## Host tuning
