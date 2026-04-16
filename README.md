@@ -55,11 +55,11 @@ aicli create cluster    prod-aus
 aicli create deployment prod-aus
 # wait ~30-60 min for install-complete
 
-# All steps below require a working `oc` authenticated to the new cluster.
-# Download the kubeconfig (works from any directory — talks to assisted-service API):
+# All steps below require a working `oc` against the new cluster.
 aicli download kubeconfig prod-aus
 export KUBECONFIG=./kubeconfig.prod-aus
-# If `oc get nodes` already works, skip that.
+# Or if you prefer oc login (needs the API URL + kubeadmin password from install-complete):
+#   oc login https://api.tna.example.local:6443 -u kubeadmin -p <password>
 
 # 2. (Secure-Boot-enabled sites only) MOK-enroll the Portworx signing cert on each node.
 #    Skip if Secure Boot is disabled in BIOS and go to step 3.

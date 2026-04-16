@@ -19,6 +19,7 @@ aicli download iso      <cluster_name>                       # pulls <cluster_na
 aicli wait cluster <cluster_name>                            # blocks until install-complete
 aicli download kubeconfig <cluster_name>
 export KUBECONFIG=./kubeconfig.<cluster_name>
+# Or: oc login https://api.<base_dns_domain>:6443 -u kubeadmin -p <password>
 
 # Portworx bring-up, in numeric order:
 oc apply -f 98-px2-configmap-cluster-monitoring.yaml

@@ -70,9 +70,11 @@ aicli list hosts                          # per-host status + validations
 ### Step 3: Authenticate to the new cluster
 
 ```sh
-# Download the kubeconfig (works from any directory — talks to assisted-service API):
+# aicli knows the cluster → just use the name:
 aicli download kubeconfig <cluster_name>
 export KUBECONFIG=./kubeconfig.<cluster_name>
+# Or if you prefer oc login (needs the API URL + kubeadmin password from install-complete):
+#   oc login https://api.<base_dns_domain>:6443 -u kubeadmin -p <password>
 
 # Verify all 3 nodes are Ready
 oc get nodes
