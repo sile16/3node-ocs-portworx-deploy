@@ -3,7 +3,7 @@
 
 CSV column names become ${VAR} placeholders (uppercased). Only CSV-defined
 columns are substituted — unrelated ${VAR} tokens (shell variables, bash
-arrays) pass through unchanged. Identical to render.sh behavior.
+arrays) pass through unchanged. Drop-in replacement for the former render.sh.
 
 Usage:
     ./render.py                  # render only NEW sites (skip existing)

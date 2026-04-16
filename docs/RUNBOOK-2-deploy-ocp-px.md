@@ -31,7 +31,7 @@ RUNBOOK 1).
 
 ```sh
 cd deploy
-./render.sh <site>                        # or: ./render.py <site>
+./render.py <site>                        # or: ./render.py <site>
 cd sites/<site>
 
 # Create the cluster definition in assisted-service
@@ -187,7 +187,7 @@ These are GPT partition-name entries (set by Ignition from the
 See RUNBOOK-1-test-env.md — after `oc get nodes` shows 3 Ready:
 
 ```sh
-cd deploy && ./render.sh -o austin && cd sites/austin
+cd deploy && ./render.py -o austin && cd sites/austin
 export KUBECONFIG=<path>/test/kvm/generated/auth/kubeconfig
 ```
 

@@ -8,7 +8,7 @@ assisted-installer, driven by the site's row in `deploy/sites.csv`:
 
 ```sh
 cd deploy
-./render.sh <site>                                           # produces deploy/sites/<site>/*
+./render.py <site>                                           # produces deploy/sites/<site>/*
 cd sites/<site>
 aicli create cluster    --paramfile aicli_parameters.yml <cluster_name>
 aicli download iso      <cluster_name>                       # pulls <cluster_name>.iso
@@ -69,7 +69,7 @@ oc get nodes                              # expect 3 Ready
 ./collect-cluster-state.sh                # per-node partition validation
 
 # Portworx — render the site dir, then run the numbered steps in order.
-(cd ../../deploy && ./render.sh test-kvm)
+(cd ../../deploy && ./render.py test-kvm)
 cd ../../deploy/sites/test-kvm
 ./98-px1-prepare.sh
 oc apply -f 98-px2-configmap-cluster-monitoring.yaml

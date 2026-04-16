@@ -1,6 +1,6 @@
 # Portworx StorageCluster — 2+1 arbiter (TNA), PX-StoreV2, RF=2.
 # ${MASTER1_HOST} / ${MASTER2_HOST} / ${ARBITER_HOST} are filled per-site by
-# deploy/render.sh from the site's row in deploy/sites.csv.
+# deploy/render.py from the site's row in deploy/sites.csv.
 
 apiVersion: core.libopenstorage.org/v1
 kind: StorageCluster

@@ -18,14 +18,14 @@ Challenges:
 ## What to read first
 
 Everything you actually deploy lives in **`deploy/`**. Site-specific values live
-in `sites.csv`; `render.sh` renders `templates/` into `sites/<site>/` so each
+in `sites.csv`; `render.py` renders `templates/` into `sites/<site>/` so each
 site gets its own self-contained directory. Files in `templates/` are numbered
 to match the order an operator runs them at the site.
 
 ```
 deploy/
 ├── sites.csv                               one row per site: hostnames, MACs, VIPs, DNS
-├── render.sh                               awk-based template render, sites.csv × templates/ → sites/<site>/
+├── render.py                               awk-based template render, sites.csv × templates/ → sites/<site>/
 ├── templates/                              canonical inputs; ${VAR} placeholders per sites.csv columns
 │   ├── 98-machineconfig-master.yaml                 master px-metadata + px-data partitions (agent-installer manifest; 98- = customer MC layer)
 │   ├── 98-machineconfig-arbiter.yaml                arbiter px-metadata partition            (agent-installer manifest)
@@ -44,7 +44,7 @@ deploy/
 ```sh
 # 0. Add/update your site row in deploy/sites.csv, then render its dir.
 cd deploy
-./render.sh austin                         # → deploy/sites/austin/*
+./render.py austin                         # → deploy/sites/austin/*
 
 # 1. Cluster install via aicli (ISO burnt to USB, boot all 3 nodes).
 #    98-machineconfig-{master,arbiter} are packed into the agent installer ISO here.
@@ -146,7 +146,7 @@ cd test/kvm
 ./generate-iso.sh                          # build-iso.sh + upload to libvirt pool
 ./create-vms.sh                            # define + boot 3 VMs from vms/*.conf
 openshift-install agent wait-for install-complete --dir=./generated
-cd ../../deploy && ./render.sh <site> && cd sites/<site> && \
+cd ../../deploy && ./render.py <site> && cd sites/<site> && \
   ./98-px1-prepare.sh && \
   oc apply -f 98-px2-configmap-cluster-monitoring.yaml && \
   oc apply -f 98-px3-subscription.yaml && \
@@ -167,8 +167,8 @@ in `test/kvm/README.md`. Full reproduction runbook is `docs/RUNBOOK.md`.
 | 2026-04-12 | `434eae3` | 4.21.9 | 3.6.0    | libvirt                    | 986 GiB (2×493) + drive-add to 1.5 TiB | px-central-aligned spec; live `pxctl service drive add` |
 | 2026-04-12 | `c580828` | 4.21.9 | 3.6.0    | libvirt                    | **1.5 TiB at install**  | Retest #9: `useAllWithPartitions` + raw-path systemMetadataDevice. Workaround proven; not shipped (hardware-specific) |
 | 2026-04-12 | `bd0d360` | 4.21.9 | 3.6.0    | libvirt                    | 986 GiB (2×493)         | Two consecutive end-to-end passes exercising `install-portworx.sh` script hardening — OLM deployment-exists poll, placeholder regex scoped to `nodeName:`, `phase=Running` wait. Smoke test PASSED both runs. |
-| 2026-04-13 | `c12a305` | 4.21.9 | 3.6.0    | libvirt                    | 986 GiB (2×493)         | First end-to-end pass of the new `deploy/` layout: per-site `render.sh <site>` driven by `sites.csv` → `98-px1-prepare.sh`  |
-| 2026-04-14 | `cabd6f1` | 4.21.9 | 3.6.0    | libvirt                    | 986 GiB (2×493)         | Full re-validation (`test/kvm/logs/fullrun-20260414T091709.log`, ~60 min wall). Teardown → `generate-iso.sh` → `create-vms.sh` → install-complete → `render.sh austin` → 98-px2 → 98-px1-prepare → 98-px3 → InstallPlan approve → 98-px4. StorageCluster phase=Running, 3/3 StorageNodes Online (986 GiB), smoke test PVC bound on `px-csi-replicated`, sentinel write/read OK.  |
+| 2026-04-13 | `c12a305` | 4.21.9 | 3.6.0    | libvirt                    | 986 GiB (2×493)         | First end-to-end pass of the new `deploy/` layout: per-site `render.py <site>` driven by `sites.csv` → `98-px1-prepare.sh`  |
+| 2026-04-14 | `cabd6f1` | 4.21.9 | 3.6.0    | libvirt                    | 986 GiB (2×493)         | Full re-validation (`test/kvm/logs/fullrun-20260414T091709.log`, ~60 min wall). Teardown → `generate-iso.sh` → `create-vms.sh` → install-complete → `render.py austin` → 98-px2 → 98-px1-prepare → 98-px3 → InstallPlan approve → 98-px4. StorageCluster phase=Running, 3/3 StorageNodes Online (986 GiB), smoke test PVC bound on `px-csi-replicated`, sentinel write/read OK.  |
 | 2026-04-14 | `fd983d3` | 4.21.9 | 3.6.0    | libvirt + **Secure Boot**  | 986 GiB (2×493)         | First SB-on validation (`test/kvm/logs/fullrun-sb-mok-20260414T124755.log`). All 3 VMs booted with `OVMF_CODE_4M.secboot.fd` + per-VM NVRAM pre-seeded by `host-setup/px-secboot-vars.sh` (Portworx CA in both UEFI `db` AND MOK via `virt-fw-vars --add-mok --add-db`). Smoke test PVC bound + write/read OK. **Key finding:** `--add-db` alone is NOT enough — PX 3.6.0 px-runc pre-flight specifically checks the MOK list (`SecureBootCertNotEnrolled` alarm on db-only setup); must seed MOK too. |
 | 2026-04-15 | `c217e5e` | 4.21.9 | 3.6.0    | libvirt + SB + **KubeVirt** | 986 GiB (2×493)        | Full stack: OCP + PX + OpenShift Virtualization (CNV 4.21.3). 24 GiB master VMs (bumped from 16 for CNV headroom; host KSM dedupes ~16 GiB across 3 RHCOS VMs, swap enabled). PX auto-detected HCO but didn't auto-create KubeVirt SCs — created manually: `px-rwx-block-kubevirt` (repl=2, nodiscard, default virt class), `px-rwx-file-kubevirt` (sharedv4), `px-cdi-scratch` (repl=1). CDI imported Cirros 0.6.2 into a 1 GiB RWX Block PVC on `px-rwx-block-kubevirt`; VirtualMachine `vm-pxtest` Running, Ready=True, PX volume HA=2 shared-block attached. |
 | 2026-04-16 | `049db69` | 4.21.9 | 3.6.0    | libvirt + SB + **KubeVirt (clean deploy)** | 986 GiB (2×493) | Production-template validation from `px-installed` snapshot. Deploy order: SCs first → CNV operator → HCO (`enableCommonBootImageImport: false` at top-level spec) → test VM. **Key findings:** (1) PX operator 26.1.0 does NOT auto-create KubeVirt SCs — must ship explicitly with `repl=2` for TNA. (2) `spec.storage` in DataVolume (not `spec.pvc`) auto-resolves `px-rwx-block-kubevirt` + RWX + Block via the `kubevirt.io/is-default-virt-class` annotation — no storageClassName needed in VM templates. (3) Zero unwanted boot images. (4) Live migration master-1 → master-2 succeeded in ~15 s via RWX shared-block PVC. PX operational: 3/3 Online, 986 GiB, 404 MiB used. Node memory: masters 57%/74%, arbiter 54%. Host KSM deduping ~14.7 GiB. |
@@ -195,7 +195,7 @@ All validated 2026-04-14 on libvirt with Secure Boot ON. Together these show tha
 | Config | Fails how | Workaround |
 |---|---|---|
 | `useAllWithPartitions: true` + any symlink `systemMetadataDevice` (partlabel, by-id, …) | PX 3.6.0 doesn't canonicalize the symlink before cross-referencing against the partition list it enumerates under `useAllWithPartitions`. The underlying partition lands in both metadata + storage lists → init fails with `device … has a filesystem on it with labels any:pwxN`. Reproduced with partlabel and with custom by-id udev symlinks. | Don't combine `useAllWithPartitions: true` with symlinks. The shipped config sticks to `useAll: true` (whole disks only) + partlabel `systemMetadataDevice`, which is safe because `useAll` never enumerates partitions — so the symlink target isn't double-counted. If you genuinely need `useAllWithPartitions`, resolve `systemMetadataDevice` to a raw path per-node (e.g. `/dev/vda5`, `/dev/sda5`, `/dev/nvme0n1p5`). Tangential KVM lesson from the repro run: virtio-blk truncates disk `serial=` to 20 chars, so any udev rule matching on a hostname-suffix needs virtio-scsi (SCSI VPD 0x80 accepts the full string; `scsi_id` populates `ID_SERIAL_SHORT` cleanly). |
-| `nodes[].selector.labelSelector` on TNA StorageCluster (instead of `nodeName`) | **Admission accepts it** (`oc apply --dry-run=server` passes, object stores fine), then the operator reconcile rejects at `storagecluster.go:3320`: `"Failed to create TNA NodeSpecs: NodeSpec for arbiter node <hostname> not found, please add it to the storage cluster spec"`. StorageCluster phase flips to `Degraded`. | TNA reconcile does an exact `nodeName` lookup per node — labelSelector matches aren't consulted. Ship exact `nodeName` on every entry; `deploy/render.sh` substitutes `${MASTER1_HOST}` / `${MASTER2_HOST}` / `${ARBITER_HOST}` from the site's row in `deploy/sites.csv`. Tested on PX 26.1.0 operator / 3.6.0 runtime, 2026-04-12. |
+| `nodes[].selector.labelSelector` on TNA StorageCluster (instead of `nodeName`) | **Admission accepts it** (`oc apply --dry-run=server` passes, object stores fine), then the operator reconcile rejects at `storagecluster.go:3320`: `"Failed to create TNA NodeSpecs: NodeSpec for arbiter node <hostname> not found, please add it to the storage cluster spec"`. StorageCluster phase flips to `Degraded`. | TNA reconcile does an exact `nodeName` lookup per node — labelSelector matches aren't consulted. Ship exact `nodeName` on every entry; `deploy/render.py` substitutes `${MASTER1_HOST}` / `${MASTER2_HOST}` / `${ARBITER_HOST}` from the site's row in `deploy/sites.csv`. Tested on PX 26.1.0 operator / 3.6.0 runtime, 2026-04-12. |
 
 ## License
 
