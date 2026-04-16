@@ -1,10 +1,8 @@
 # HyperConverged CR — tells CNV to deploy the virt stack (virt-operator,
 # virt-api, virt-controller, virt-handler daemonset, CDI, SSP, etc).
 #
-# Apply AFTER 99-kubevirt-1-subscription.yaml's InstallPlan has been approved
-# and the CNV operator pod is Available. When this CR appears, the Portworx
-# operator (>=25.5.0) automatically creates the three KubeVirt StorageClasses
-# and annotates `px-rwx-block-kubevirt` as the default VM class.
+# Apply AFTER the CNV operator's InstallPlan has been approved and the
+# hco-operator deployment is Available.
 #
 # Minimal config — relies on the CNV operator defaults for certRotation,
 # liveMigration, etc. Tune fields here if a site needs more aggressive
@@ -15,9 +13,9 @@ metadata:
   name: kubevirt-hyperconverged
   namespace: openshift-cnv
 spec:
-  # Disable the "featureGates.enableCommonBootImageImport" auto-importer
-  # on small clusters — it pulls RHEL/Fedora images into the cluster on
-  # every start and can saturate a 3-node PX footprint. Re-enable per-site
-  # if operators want the pre-populated boot-image library.
-  featureGates:
-    enableCommonBootImageImport: false
+  # Disable auto-import of RHEL/Fedora/CentOS boot images. On a 3-node
+  # TNA cluster these consume ~180 GiB of PX pool (6 images × 30 GiB × repl=2)
+  # and are rarely needed — operators import specific images on demand via
+  # DataVolumes. NOTE: the field is top-level spec, NOT under featureGates
+  # (that location is deprecated + silently ignored since CNV 4.21).
+  enableCommonBootImageImport: false
