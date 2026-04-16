@@ -71,8 +71,8 @@ oc get nodes                              # expect 3 Ready
 # Portworx — render the site dir, then run the numbered steps in order.
 (cd ../../deploy && ./render.sh test-kvm)
 cd ../../deploy/sites/test-kvm
-oc apply -f 98-px2-configmap-clulster-monitoring.yaml
 ./98-px1-prepare.sh
+oc apply -f 98-px2-configmap-clulster-monitoring.yaml
 oc apply -f 98-px3-subscription.yaml
 IP=$(oc -n portworx get installplan -o name | head -1)
 oc -n portworx patch "$IP" --type merge -p '{"spec":{"approved":true}}'

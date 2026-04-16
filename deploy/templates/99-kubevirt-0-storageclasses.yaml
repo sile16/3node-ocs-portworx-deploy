@@ -6,9 +6,6 @@
 #      nodes — arbiter is storageless). Shipping explicit SCs guarantees
 #      the correct repl regardless of what auto-create would choose.
 #
-# Apply AFTER 99-kubevirt-2-hyperconverged.yaml (HCO must exist so CDI
-# can build StorageProfiles from these SCs).
-#
 # Per PX docs:
 #   https://docs.portworx.com/portworx-enterprise/provision-storage/kubevirt-vms/manage-kubevirt-vms-rwx-block/openshift
 #

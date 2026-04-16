@@ -26,7 +26,7 @@ leak, and operators run it after the StorageCluster reaches `phase=Running`.
 
 Each install disk is partitioned at install time:
 
-| Partition | Label         | Size            | Used as                          |
+| Partition | GPT partition-name | Size            | Used as                          |
 |-----------|---------------|-----------------|----------------------------------|
 | p1–p4     | (RHCOS)       | up to 170 GiB   | Install + rootfs (auto-grown)    |
 | p5        | `px-metadata` | 64 GiB          | `systemMetadataDevice` (PX-StoreV2) |
@@ -39,7 +39,7 @@ Arbiter has no p6 — it's storageless.
 The shipped config uses `useAll: true` (raw whole disks only) on each master,
 plus the `/dev/disk/by-partlabel/px-metadata` symlink as `systemMetadataDevice`
 (and as `kvdbDevice` on the arbiter). This pairing is hardware-agnostic out
-of the box — the partition label is set by the same `98-machineconfig-*.yaml`
+of the box — the GPT partition-name is set by the same `98-machineconfig-*.yaml`
 regardless of boot-disk device name, so one StorageCluster YAML works across
 `vda5` / `sda5` / `nvme0n1p5` sites with no per-node substitution.
 
@@ -65,7 +65,7 @@ device path (resolved per-node) — see the header comment in
 ## Pre-reqs OCP doesn't provide (already handled)
 
 - px-metadata + px-data partitions — created by `deploy/templates/98-machineconfig-*.yaml`.
-- Stable `/dev/disk/by-partlabel/px-metadata` symlink — automatic from the partition `label:`. Referenced directly by `98-px4-storagecluster.yaml` on every node; hardware-agnostic because partition label survives device renaming.
+- Stable `/dev/disk/by-partlabel/px-metadata` symlink — udev auto-creates this from the GPT partition-name field (`label:` in the MachineConfig's Ignition spec). Referenced directly by `98-px4-storagecluster.yaml` on every node; hardware-agnostic because the GPT partition-name survives device renaming. (Note: this is distinct from the XFS filesystem label `mdvol` that PX writes *inside* the partition, and from Kubernetes node labels applied by `98-px1-prepare.sh`.)
 - No `/var/lib/portworx` filesystem mount — MachineConfigs intentionally omit `filesystems:` and `systemd:` blocks.
 - SCCs + privileged-pod RBAC — Portworx operator creates its own SCC.
 - Kernel modules (`dm_thin_pool`, `dmsetup`) — built into RHCOS 9.6.

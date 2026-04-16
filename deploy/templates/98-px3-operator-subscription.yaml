@@ -1,11 +1,9 @@
 # Portworx Enterprise operator (OLM) — namespace + OperatorGroup + Subscription.
-# Apply after 98-px1-prepare.sh. Because installPlanApproval is
 # Manual, OLM creates the InstallPlan in a non-approved state; approve it
 # before waiting for the operator Deployment:
 #   IP=$(oc -n portworx get installplan -o name | head -1)
 #   oc -n portworx patch "$IP" --type merge -p '{"spec":{"approved":true}}'
 #   oc -n portworx wait --for=condition=Available deploy/portworx-operator --timeout=10m
-# Then apply 98-px4-storagecluster.yaml.
 apiVersion: v1
 kind: Namespace
 metadata:

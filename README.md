@@ -29,7 +29,7 @@ deploy/
 ├── templates/                              canonical inputs; ${VAR} placeholders per sites.csv columns
 │   ├── 98-machineconfig-master.yaml                 master px-metadata + px-data partitions (agent-installer manifest; 98- = customer MC layer)
 │   ├── 98-machineconfig-arbiter.yaml                arbiter px-metadata partition            (agent-installer manifest)
-│   ├── 98-px1-prepare.sh                            label masters + arbiter so StorageCluster's nodeAffinity matches
+│   ├── 98-px1-prepare.sh                            apply Kubernetes node labels (portworx.io/node-type) so StorageCluster's nodeAffinity matches
 │   ├── 98-px2-configmap-clulster-monitoring.yaml    cluster-monitoring user-workload enable
 │   ├── 98-px3-subscription.yaml                     OLM install of portworx-certified
 │   ├── 98-px4-storagecluster.yaml                   TNA StorageCluster; uses partlabel symlink for px-metadata (safe with `useAll: true`)
@@ -97,7 +97,8 @@ The assisted installer picks the install disk itself (largest by default);
 if a site needs to constrain it, add a per-host `installation_disk_id:` to
 the `hosts:` entries in `templates/aicli_parameters.yml`. PX references the
 px-metadata partition via its `/dev/disk/by-partlabel/` symlink, which stays
-hardware-agnostic because the partition label is set by the same
+hardware-agnostic because the GPT partition label (partition-name entry in the
+GPT table, not a filesystem label or Kubernetes label) is set by the same
 MachineConfig regardless of boot-disk device name.
 
 ## Repo layout
@@ -173,11 +174,11 @@ in `test/kvm/README.md`. Full reproduction runbook is `docs/RUNBOOK.md`.
 
 ## Resilience tests
 
-All validated 2026-04-14 on libvirt with Secure Boot ON. Together these show that **Portworx 3.6.0 tolerates the full class of "partition-label / MOK-enrollment got disturbed" failures without corrupting data or needing a StorageCluster rebuild** — which is exactly the robustness you want when a large fleet deploy hits one weird node.
+All validated 2026-04-14 on libvirt with Secure Boot ON. Together these show that **Portworx 3.6.0 tolerates the full class of "GPT partition-label / MOK-enrollment got disturbed" failures without corrupting data or needing a StorageCluster rebuild** — which is exactly the robustness you want when a large fleet deploy hits one weird node.
 
 | Test | What we did | PX behavior |
 |---|---|---|
-| **GPT partlabel renamed + node rebooted** | `sgdisk --change-name=5:px-metadata-broken /dev/vda` → reboot. `/dev/disk/by-partlabel/px-metadata` is gone after boot. | **Self-recovered** in ~60–90 s. `pxctl status` showed `Metadata Device: /dev/vda5` — PX fell back to filesystem-UUID discovery. Cluster stayed `phase=Running`. Restoring the label was immediate, non-disruptive. |
+| **GPT partition-name renamed + node rebooted** | `sgdisk --change-name=5:px-metadata-broken /dev/vda` → reboot. `/dev/disk/by-partlabel/px-metadata` symlink (udev-generated from the GPT partition-name field) is gone after boot. | **Self-recovered** in ~60–90 s. `pxctl status` showed `Metadata Device: /dev/vda5` — PX fell back to filesystem-UUID discovery (the XFS filesystem label `mdvol` that PX writes inside the partition, distinct from the GPT partition-name). Cluster stayed `phase=Running`. Restoring the GPT partition-name with `sgdisk --change-name` was immediate, non-disruptive. |
 | **SB on, no PX cert anywhere** (E1) | Installed cluster with SB enabled and zero Portworx trust in UEFI db / MOK. Applied full PX bring-up. | Clean failure. `pxctl alerts`: `SecureBootCertNotEnrolled`. `px-runc` exits before touching any device. StorageCluster stuck at `Initializing`. **All 6 GPT partition labels on every node intact.** No disk writes. |
 | **Progressive MOK enrollment** (E2 → E3) | From the E1 failed state, added PX cert to master-1 only → observed asymmetric cluster. Then added to arbiter → 2/3 Online, still no quorum for writes. Then added to master-2 → full cluster. | Cluster healed incrementally. No teardown/reapply of the StorageCluster needed. `phase` went `Initializing → Degraded → Initializing → Running` as quorum arrived. **Partition labels intact through every transition.** |
 

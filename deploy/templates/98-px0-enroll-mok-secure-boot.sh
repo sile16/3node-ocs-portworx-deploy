@@ -2,12 +2,12 @@
 # Stage MOK enrollment of the Portworx Secure Boot CA on every node, then
 # print reboot instructions for the operator.
 #
-# Run this BEFORE 98-px1-prepare.sh on sites where firmware Secure Boot is
+# Run on sites where firmware Secure Boot is
 # ON. The script downloads the PX CA directly on each node (nodes have
 # outbound internet by assumption) and runs `mokutil --import` with a
 # well-known temporary password, queuing enrollment for MokManager.
 #
-# The operator then reboots each node (IPMI/iDRAC/iLO/physical console) and
+# The user then needs to reboot each node (IPMI/iDRAC/iLO/physical console) and
 # answers the MokManager prompt within ~10 s of firmware handoff:
 #   Press key → Enroll MOK → View key → Continue → Yes → enter password
 #
