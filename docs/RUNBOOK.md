@@ -17,7 +17,8 @@ aicli download iso      <cluster_name>                       # pulls <cluster_na
 # USB: sudo dd if=<cluster_name>.iso of=/dev/sdX bs=4M status=progress conv=fsync
 # Hosts register with assisted-service by MAC (see `hosts:` in paramfile).
 aicli wait cluster <cluster_name>                            # blocks until install-complete
-export KUBECONFIG=$(aicli info cluster <cluster_name> -f kubeconfig)
+aicli download kubeconfig <cluster_name>
+export KUBECONFIG=./kubeconfig.<cluster_name>
 
 # Portworx bring-up, in numeric order:
 oc apply -f 98-px2-configmap-cluster-monitoring.yaml

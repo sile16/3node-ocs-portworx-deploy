@@ -70,8 +70,9 @@ aicli list hosts                          # per-host status + validations
 ### Step 3: Authenticate to the new cluster
 
 ```sh
-# aicli produces the kubeconfig:
-export KUBECONFIG=$(aicli info cluster <cluster_name> -f kubeconfig)
+# Download the kubeconfig (works from any directory — talks to assisted-service API):
+aicli download kubeconfig <cluster_name>
+export KUBECONFIG=./kubeconfig.<cluster_name>
 
 # Verify all 3 nodes are Ready
 oc get nodes
