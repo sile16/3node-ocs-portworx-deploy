@@ -33,14 +33,14 @@ spec:
       url: https://download.cirros-cloud.net/0.6.2/cirros-0.6.2-x86_64-disk.img
       # For a real Linux VM, use Fedora Cloud (swap url + bump storage to 20Gi):
       # url: https://download.fedoraproject.org/pub/fedora/linux/releases/40/Cloud/x86_64/images/Fedora-Cloud-Base-Generic-40-1.14.x86_64.qcow2
-  pvc:
-    accessModes:
-      - ReadWriteMany
-    volumeMode: Block
+  # Use `storage:` (CDI smart path) — NOT `pvc:` (raw template).
+  # CDI auto-resolves from the `storageclass.kubevirt.io/is-default-virt-class`
+  # annotation on px-rwx-block-kubevirt + its StorageProfile (RWX + Block).
+  # No need to hardcode storageClassName, accessModes, or volumeMode.
+  storage:
     resources:
       requests:
         storage: 1Gi
-    storageClassName: px-rwx-block-kubevirt
 ---
 apiVersion: kubevirt.io/v1
 kind: VirtualMachine
