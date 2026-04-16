@@ -1,4 +1,6 @@
 # Arbiter px-metadata (p5, 64 GiB) only. No px-data — arbiter is storageless.
+# Minimum boot disk: 240 GiB (170 GiB OS at startMiB + 64 GiB metadata + margin).
+# Smaller disks will fail silently — Ignition skips partitions that don't fit.
 apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfig
 metadata:

@@ -9,9 +9,10 @@
 set -uo pipefail
 : "${KUBECONFIG:?KUBECONFIG not set}"
 
+FAILURES=0
 ok()   { printf '  [ OK ] %s\n'   "$*"; }
 warn() { printf '  [WARN] %s\n'   "$*"; }
-fail() { printf '  [FAIL] %s\n'   "$*"; }
+fail() { printf '  [FAIL] %s\n'   "$*"; FAILURES=$((FAILURES + 1)); }
 section() { printf '\n== %s ==\n' "$*"; }
 
 # ── OCP cluster ──────────────────────────────────────────────────────────
@@ -134,3 +135,4 @@ else
 fi
 
 echo
+exit "$FAILURES"

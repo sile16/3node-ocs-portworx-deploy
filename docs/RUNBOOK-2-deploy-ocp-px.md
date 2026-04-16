@@ -111,7 +111,7 @@ Run these in order from the rendered site directory (`deploy/sites/<site>/`):
 
 ```sh
 # 5a. Enable cluster-monitoring user-workload
-oc apply -f 98-px2-configmap-clulster-monitoring.yaml
+oc apply -f 98-px2-configmap-cluster-monitoring.yaml
 
 # 5b. Apply Kubernetes node labels (portworx.io/node-type, portworx.io/run-on-master)
 ./98-px1-prepare.sh

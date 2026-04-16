@@ -1,11 +1,12 @@
 ---
 # Per-site aicli parameters — rendered by deploy/render.sh from deploy/sites.csv.
-# Edit deploy/templates/aicli_parameters.yml (the rendered copy at
-# deploy/sites/<site>/aicli_parameters.yml is regenerated on every render).
-# Usage at the site:
-#   cd deploy
-#   aicli create cluster    --paramfile sites/${SITE}/aicli_parameters.yml ${CLUSTER_NAME}
-#   aicli create deployment --paramfile sites/${SITE}/aicli_parameters.yml ${CLUSTER_NAME}
+# Usage: cd into the rendered site directory, then run aicli from there:
+#   cd deploy/sites/<site>
+#   aicli create cluster    --paramfile aicli_parameters.yml <cluster_name>
+#   aicli create deployment --paramfile aicli_parameters.yml <cluster_name>
+# IMPORTANT: `manifests: .` resolves relative to CWD. Running from the
+# site directory ensures aicli picks up only the rendered 98-machineconfig-*
+# manifests from this directory, not stray files from elsewhere.
 
 base_dns_domain: ${BASE_DNS_DOMAIN}
 openshift_version: "4.21"

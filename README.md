@@ -30,12 +30,12 @@ deploy/
 │   ├── 98-machineconfig-master.yaml                 master px-metadata + px-data partitions (agent-installer manifest; 98- = customer MC layer)
 │   ├── 98-machineconfig-arbiter.yaml                arbiter px-metadata partition            (agent-installer manifest)
 │   ├── 98-px1-prepare.sh                            apply Kubernetes node labels (portworx.io/node-type) so StorageCluster's nodeAffinity matches
-│   ├── 98-px2-configmap-clulster-monitoring.yaml    cluster-monitoring user-workload enable
+│   ├── 98-px2-configmap-cluster-monitoring.yaml    cluster-monitoring user-workload enable
 │   ├── 98-px3-subscription.yaml                     OLM install of portworx-certified
 │   ├── 98-px4-storagecluster.yaml                   TNA StorageCluster; uses partlabel symlink for px-metadata (safe with `useAll: true`)
 │   ├── 98-px5-register.sh                           optional site-specific license / px-central registration
 │   ├── aicli_parameters.yml                    aicli input: VIPs, hosts, MACs, pull secret
-│   └── check_px_status.sh                      one-shot health snapshot (OCP + PX), flags known-bad symptoms
+├── check_px_status.sh                      one-shot health snapshot (OCP + PX), flags known-bad symptoms
 └── sites/<site>/                           rendered, per-site, gitignored — what the site operator ships against
 ```
 
@@ -66,7 +66,7 @@ aicli create deployment --paramfile aicli_parameters.yml prod-aus
 
 # 3. Portworx bring-up — run the numbered steps in order.
 ./98-px1-prepare.sh                       # labels masters + arbiter
-oc apply -f 98-px2-configmap-clulster-monitoring.yaml
+oc apply -f 98-px2-configmap-cluster-monitoring.yaml
 oc apply -f 98-px3-subscription.yaml
 # installPlanApproval is Manual + pinned via startingCSV — approve before waiting.
 oc -n portworx patch "$(oc -n portworx get installplan -o name | head -1)" \
@@ -148,7 +148,7 @@ cd test/kvm
 openshift-install agent wait-for install-complete --dir=./generated
 cd ../../deploy && ./render.sh <site> && cd sites/<site> && \
   ./98-px1-prepare.sh && \
-  oc apply -f 98-px2-configmap-clulster-monitoring.yaml && \
+  oc apply -f 98-px2-configmap-cluster-monitoring.yaml && \
   oc apply -f 98-px3-subscription.yaml && \
   oc -n portworx patch "$(oc -n portworx get installplan -o name | head -1)" --type merge -p '{"spec":{"approved":true}}' && \
   oc -n portworx wait --for=condition=Available deploy/portworx-operator --timeout=10m && \

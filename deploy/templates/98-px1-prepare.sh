@@ -1,12 +1,6 @@
 #!/usr/bin/env bash
-# Label masters + arbiter so 98-px4-storagecluster's placement nodeAffinity
-# matches. The StorageCluster references the px-metadata partition via its
-# partlabel symlink directly — no per-node raw-device resolution needed
-# (PX 3.6.0 handles the symlink fine as long as useAllWithPartitions is off;
-# see the header comment in 98-px4-storagecluster.yaml).
-#
-# Must run AFTER the cluster is installed (MCs rolled so master + arbiter
-# role labels exist). Idempotent.
+# Apply Kubernetes node labels for StorageCluster placement nodeAffinity.
+# Idempotent — safe to re-run.
 
 set -euo pipefail
 : "${KUBECONFIG:?KUBECONFIG not set}"

@@ -20,7 +20,7 @@ aicli wait cluster <cluster_name>                            # blocks until inst
 export KUBECONFIG=$(aicli info cluster <cluster_name> -f kubeconfig)
 
 # Portworx bring-up, in numeric order:
-oc apply -f 98-px2-configmap-clulster-monitoring.yaml
+oc apply -f 98-px2-configmap-cluster-monitoring.yaml
 ./98-px1-prepare.sh       # labels masters + arbiter (idempotent)
 oc apply -f 98-px3-subscription.yaml
 # InstallPlan is Manual + pinned via startingCSV; approve it before waiting.
@@ -72,7 +72,7 @@ oc get nodes                              # expect 3 Ready
 (cd ../../deploy && ./render.sh test-kvm)
 cd ../../deploy/sites/test-kvm
 ./98-px1-prepare.sh
-oc apply -f 98-px2-configmap-clulster-monitoring.yaml
+oc apply -f 98-px2-configmap-cluster-monitoring.yaml
 oc apply -f 98-px3-subscription.yaml
 IP=$(oc -n portworx get installplan -o name | head -1)
 oc -n portworx patch "$IP" --type merge -p '{"spec":{"approved":true}}'

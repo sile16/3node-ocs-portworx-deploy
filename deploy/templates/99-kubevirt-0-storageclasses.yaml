@@ -1,18 +1,11 @@
 # Portworx StorageClasses for OpenShift Virtualization / KubeVirt.
 #
-# Ship these explicitly rather than relying on PX operator auto-creation:
-#   1. Auto-create didn't fire in testing (PX was Running before HCO appeared).
-#   2. Even if auto-create fires, we need repl=2 for TNA (only 2 storage
-#      nodes — arbiter is storageless). Shipping explicit SCs guarantees
-#      the correct repl regardless of what auto-create would choose.
+# Apply BEFORE the HyperConverged CR (99-kubevirt-2) so the SCs exist
+# when CDI starts and builds StorageProfiles from them. Numbered 0 to
+# reflect this ordering. PX operator 26.1.0 does NOT auto-create these.
+# repl=2 is mandatory for TNA (only 2 storage nodes).
 #
-# Per PX docs:
-#   https://docs.portworx.com/portworx-enterprise/provision-storage/kubevirt-vms/manage-kubevirt-vms-rwx-block/openshift
-#
-# Three classes, each tuned for a KubeVirt use case:
-#   px-rwx-block-kubevirt  — VM boot/data disks (RWX Block, default virt class, repl=2)
-#   px-rwx-file-kubevirt   — shared filesystem for vTPM, cloud-init ISOs (repl=2)
-#   px-cdi-scratch          — CDI importer scratch space (repl=1, ephemeral)
+# Ref: https://docs.portworx.com/portworx-enterprise/provision-storage/kubevirt-vms/manage-kubevirt-vms-rwx-block/openshift
 ---
 apiVersion: storage.k8s.io/v1
 kind: StorageClass

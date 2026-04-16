@@ -29,10 +29,8 @@ spec:
   channel: stable
   name: portworx-certified
   source: certified-operators
-  sourceNamespace: openshift-marketplace
-  # Pin to the CSV the reference deployment was validated against so
-  # a catalog update doesn't silently upgrade the operator out from
+  sourceNamespace: openshift-marketplace  
+  installPlanApproval: Austomatic
   # under a StorageCluster pinned to oci-monitor:3.6.0 in 98-px4-.
   # Bump both together when intentionally moving versions.
-  installPlanApproval: Manual
   startingCSV: portworx-operator.v26.1.0
