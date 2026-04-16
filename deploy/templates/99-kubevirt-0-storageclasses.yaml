@@ -1,18 +1,20 @@
 # Portworx StorageClasses for OpenShift Virtualization / KubeVirt.
 #
-# Apply AFTER 99-kubevirt-2-hyperconverged.yaml (HCO must exist so CNV
-# knows which SC to use as the VM default). PX operator >=25.5.0 is
-# supposed to auto-create these when it detects HyperConverged, but
-# in practice the auto-creation doesn't fire if PX was already Running
-# before HCO appeared. Ship them explicitly so the flow is deterministic.
+# Ship these explicitly — do NOT rely on PX operator auto-creation:
+#   1. Auto-create doesn't fire if PX was Running before HCO appeared.
+#   2. Auto-created SCs default to repl=3, which FAILS on TNA (only 2
+#      storage nodes — arbiter is storageless). We pin repl=2 here.
+#
+# Apply AFTER 99-kubevirt-2-hyperconverged.yaml (HCO must exist so CDI
+# can build StorageProfiles from these SCs).
 #
 # Per PX docs:
 #   https://docs.portworx.com/portworx-enterprise/provision-storage/kubevirt-vms/manage-kubevirt-vms-rwx-block/openshift
 #
 # Three classes, each tuned for a KubeVirt use case:
-#   px-rwx-block-kubevirt   — VM boot/data disks (RWX Block, default virt class)
-#   px-rwx-file-kubevirt    — shared filesystem for vTPM, cloud-init ISOs
-#   px-cdi-scratch           — CDI importer scratch space (single-replica, ephemeral)
+#   px-rwx-block-kubevirt  — VM boot/data disks (RWX Block, default virt class, repl=2)
+#   px-rwx-file-kubevirt   — shared filesystem for vTPM, cloud-init ISOs (repl=2)
+#   px-cdi-scratch          — CDI importer scratch space (repl=1, ephemeral)
 ---
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
